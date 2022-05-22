@@ -1,0 +1,526 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "name": "Aero Flot",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/5/55/Aeroflot.svg",
+      "code": "SU",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "A7AHL",
+          "flightid" : "UAE38",
+          "arrival" : "DFW",
+          "departure" : "LAX",
+          "messagetime" : "60347",
+          "feet" : "33",
+          "landinghrs" : "05",
+          "operational": true,
+          "nonoperational": false,
+          "degret":false,
+          "unknown":true,
+          "status":"unknown"
+        },
+        {
+          "id": 2,
+          "flightname" : "A7AXU",
+          "flightid" : "UTE36",
+          "arrival" : "DAL",
+          "departure" : "HAL",
+          "messagetime" : "34",
+          "feet" : "221",
+          "landinghrs" : "01",
+          "operational": true,
+          "nonoperational": false,
+          "degret":true,
+          "unknown":false,
+          "status":"degret"
+        },
+        {
+          "id": 3,
+          "flightname" : "AM1",
+          "flightid" : "AMX1",
+          "arrival" : "MEX",
+          "departure" : "MAD",
+          "messagetime" : "47",
+          "feet" : "13232",
+          "landinghrs" : "15",
+          "operational": true,
+          "nonoperational": false,
+          "degret":true,
+          "unknown":true,
+          "status":"operational"
+        },
+        {
+          "id": 4,
+          "flightname" : "AC1",
+          "flightid" : "ACA1",
+          "arrival" : "PEA",
+          "departure" : "HAN",
+          "messagetime" : "4",
+          "feet" : "10234",
+          "landinghrs" : "04",
+          "operational": false,
+          "nonoperational": false,
+          "degret":false,
+          "unknown":true,
+          "status":"nonoperational"
+        },
+        {
+          "id": 5,
+          "flightname" : "NZ1",
+          "flightid" : "ANZ1",
+          "arrival" : "HEA",
+          "departure" : "LAS",
+          "messagetime" : "347",
+          "feet" : "23123",
+          "landinghrs" : "3",
+          "operational": false,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":false,
+          "status":"unknown"
+        },
+        {
+          "id": 6,
+          "flightname" : "TN1",
+          "flightid" : "THT1",
+          "arrival" : "LAS",
+          "departure" : "PAP",
+          "messagetime" : "134",
+          "feet" : "22298",
+          "landinghrs" : "21",
+          "operational": false,
+          "nonoperational": false,
+          "degret":true,
+          "unknown":false,
+          "status":"unknown"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Air Asia",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/f/f5/AirAsia_New_Logo.svg",
+      "code": "AXM",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "D71",
+          "flightid" : "XAX1",
+          "arrival" : "KOL",
+          "departure" : "KAN",
+          "messagetime" : "2",
+          "feet" : "3",
+          "landinghrs" : "00",
+          "operational": false,
+          "nonoperational": false,
+          "degret":false,
+          "unknown":false,
+          "status":"degret"
+        },
+        {
+          "id": 2,
+          "flightname" : "AS1",
+          "flightid" : "ASA1",
+          "arrival" : "WDC",
+          "departure" : "SAT",
+          "messagetime" : "234",
+          "feet" : "21",
+          "landinghrs" : "12",
+          "operational": true,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":true,
+          "status":"operational"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Air Canada",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/2/24/Air_Canada_Logo.svg",
+      "code": "ACA",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "NH1",
+          "flightid" : "ANA1",
+          "arrival" : "WAS",
+          "departure" : "TOK",
+          "messagetime" : "347",
+          "feet" : "313",
+          "landinghrs" : "15",
+          "operational": false,
+          "nonoperational": true,
+          "degret":false,
+          "unknown":true,
+          "status":"nonoperational"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Air Bus",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/1/17/Air_Caraibes_2019_logo.svg",
+      "code": "ARB",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "AS1",
+          "flightid" : "ASA1",
+          "arrival" : "WDC",
+          "departure" : "SAT",
+          "messagetime" : "234",
+          "feet" : "21",
+          "landinghrs" : "12",
+          "operational": true,
+          "nonoperational": true,
+          "degret":false,
+          "unknown":false,
+          "status":"unknown"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Air China",
+      "image": "https://logodownload.org/wp-content/uploads/2020/03/air-china-logo-0.png",
+      "code": "CCA",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "A7AHL",
+          "flightid" : "UAE38",
+          "arrival" : "DFW",
+          "departure" : "LAX",
+          "messagetime" : "60347",
+          "feet" : "33",
+          "landinghrs" : "05",
+          "operational": false,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":false
+        },
+        {
+          "id": 2,
+          "flightname" : "A7AXU",
+          "flightid" : "UTE36",
+          "arrival" : "DAL",
+          "departure" : "HAL",
+          "messagetime" : "34",
+          "feet" : "221",
+          "landinghrs" : "01",
+          "operational": true,
+          "nonoperational": false,
+          "degret":false,
+          "unknown":false
+        },
+        {
+          "id": 3,
+          "flightname" : "AM1",
+          "flightid" : "AMX1",
+          "arrival" : "MEX",
+          "departure" : "MAD",
+          "messagetime" : "47",
+          "feet" : "13232",
+          "landinghrs" : "15",
+          "operational": true,
+          "nonoperational": false,
+          "degret":true,
+          "unknown":false
+        },
+        {
+          "id": 4,
+          "flightname" : "AC1",
+          "flightid" : "ACA1",
+          "arrival" : "PEA",
+          "departure" : "HAN",
+          "messagetime" : "4",
+          "feet" : "10234",
+          "landinghrs" : "04",
+          "operational": false,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Air France",
+      "image": "http://logok.org/wp-content/uploads/2014/04/Air-France-AF-logo.png",
+      "code": "AFR",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "A7AHL",
+          "flightid" : "UAE38",
+          "arrival" : "DFW",
+          "departure" : "LAX",
+          "messagetime" : "60347",
+          "feet" : "33",
+          "landinghrs" : "05",
+          "operational": true,
+          "nonoperational": false,
+          "degret":true,
+          "unknown":true
+        },
+        {
+          "id": 2,
+          "flightname" : "A7AXU",
+          "flightid" : "UTE36",
+          "arrival" : "DAL",
+          "departure" : "HAL",
+          "messagetime" : "34",
+          "feet" : "221",
+          "landinghrs" : "01",
+          "operational": true,
+          "nonoperational": false,
+          "degret":true,
+          "unknown":true
+        }
+      ]
+        
+    },
+    {
+      "id": 7,
+      "name": "Air India",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/f/f7/Air_India.svg",
+      "code": "AIC"
+    },
+    {
+      "id": 8,
+      "name": "Air Deccan",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/2/24/Air_Canada_Logo.svg",
+      "code": "MAU",
+      "flightdata":[
+        {
+          "id": 1,
+          "flightname" : "AM1",
+          "flightid" : "AMX1",
+          "arrival" : "MEX",
+          "departure" : "MAD",
+          "messagetime" : "47",
+          "feet" : "13232",
+          "landinghrs" : "15",
+          "operational": true,
+          "nonoperational": false,
+          "degret":false,
+          "unknown":true,
+          "status":"operational"
+        },
+        {
+          "id": 2,
+          "flightname" : "AC1",
+          "flightid" : "ACA1",
+          "arrival" : "PEA",
+          "departure" : "HAN",
+          "messagetime" : "4",
+          "feet" : "10234",
+          "landinghrs" : "04",
+          "operational": true,
+          "nonoperational": true,
+          "degret":false,
+          "unknown":true,
+          "status":"nonoperational"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Jet Blue",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/3/3c/JetBlue_Airways_Logo.svg",
+      "code": "AAL",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "A7AHL",
+          "flightid" : "UAE38",
+          "arrival" : "DFW",
+          "departure" : "LAX",
+          "messagetime" : "60347",
+          "feet" : "33",
+          "landinghrs" : "05",
+          "operational": true,
+          "nonoperational": false,
+          "degret":false,
+          "unknown":true
+        },
+        {
+          "id": 2,
+          "flightname" : "A7AXU",
+          "flightid" : "UTE36",
+          "arrival" : "DAL",
+          "departure" : "HAL",
+          "messagetime" : "34",
+          "feet" : "221",
+          "landinghrs" : "01",
+          "operational": true,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":true
+        },
+        {
+          "id": 3,
+          "flightname" : "AM1",
+          "flightid" : "AMX1",
+          "arrival" : "MEX",
+          "departure" : "MAD",
+          "messagetime" : "47",
+          "feet" : "13232",
+          "landinghrs" : "15",
+          "operational": false,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":true
+        },
+        {
+          "id": 4,
+          "flightname" : "AC1",
+          "flightid" : "ACA1",
+          "arrival" : "PEA",
+          "departure" : "HAN",
+          "messagetime" : "4",
+          "feet" : "10234",
+          "landinghrs" : "04",
+          "operational": true,
+          "nonoperational": true,
+          "degret":false,
+          "unknown":false
+        },
+        {
+          "id": 5,
+          "flightname" : "NZ1",
+          "flightid" : "ANZ1",
+          "arrival" : "HEA",
+          "departure" : "LAS",
+          "messagetime" : "347",
+          "feet" : "23123",
+          "landinghrs" : "3",
+          "operational": false,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":false
+        },
+        {
+          "id": 6,
+          "flightname" : "TN1",
+          "flightid" : "THT1",
+          "arrival" : "LAS",
+          "departure" : "PAP",
+          "messagetime" : "134",
+          "feet" : "22298",
+          "landinghrs" : "21",
+          "operational": false,
+          "nonoperational": true,
+          "degret":false,
+          "unknown":true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Finnair",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Finnair_Logo.svg",
+      "code": "FNR"
+    },
+    {
+      "id": 11,
+      "name": "EVA Air",
+      "image": "https://logodownload.org/wp-content/uploads/2020/03/eva-air-logo-0.png",
+      "code": "EVA",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "A7AHL",
+          "flightid" : "UAE38",
+          "arrival" : "DFW",
+          "departure" : "LAX",
+          "messagetime" : "60347",
+          "feet" : "33",
+          "landinghrs" : "05",
+          "operational": false,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":true
+        },
+        {
+          "id": 2,
+          "flightname" : "A7AXU",
+          "flightid" : "UTE36",
+          "arrival" : "DAL",
+          "departure" : "HAL",
+          "messagetime" : "34",
+          "feet" : "221",
+          "landinghrs" : "01",
+          "operational": false,
+          "nonoperational": true,
+          "degret":false,
+          "unknown":false
+        },
+        {
+          "id": 3,
+          "flightname" : "AM1",
+          "flightid" : "AMX1",
+          "arrival" : "MEX",
+          "departure" : "MAD",
+          "messagetime" : "47",
+          "feet" : "13232",
+          "landinghrs" : "15",
+          "operational": false,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Lufthansa",
+      "image": "https://upload.wikimedia.org/wikipedia/commons/b/b8/Lufthansa_Logo_2018.svg",
+      "code": "LFA",
+      "flightdata" : [
+        {
+          "id": 1,
+          "flightname" : "D71",
+          "flightid" : "XAX1",
+          "arrival" : "KOL",
+          "departure" : "KAN",
+          "messagetime" : "2",
+          "feet" : "3",
+          "landinghrs" : "00",
+          "operational": true,
+          "nonoperational": true,
+          "degret":true,
+          "unknown":true
+        },
+        {
+          "id": 2,
+          "flightname" : "AS1",
+          "flightid" : "ASA1",
+          "arrival" : "WDC",
+          "departure" : "SAT",
+          "messagetime" : "234",
+          "feet" : "21",
+          "landinghrs" : "12",
+          "operational": false,
+          "nonoperational": true,
+          "degret":false,
+          "unknown":false
+        }
+      ]
+    }
+
+  ],
+  "comments": [
+    {
+      "id": 1,
+      "body": "some comment",
+      "postId": 1
+    }
+  ],
+  "profile": {
+    "name": "typicode"
+  }
+}

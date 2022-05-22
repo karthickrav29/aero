@@ -1,0 +1,71 @@
+
+<br>
+<div class="container">
+  <div class="col-7" style="background-color:rgb(194, 189, 189)">
+    <div class="px-2" *ngIf="count; else elsepart">ON GROUND ({{count}})</div>
+    <div class="p-3" *ngFor="let data of finalData;">
+      <div class="row px-2">
+        <div [ngClass]="{'optclr':data.status=='operational','nonoptclr':data.status=='nonoperational','degretclr':data.status=='degret','unknownclr':data.status=='unknown'}" 
+        class="col-1 radius border border-dark" style="width:5%;overflow: hidden;"
+        placement="end" [ngbTooltip]="tipContent">
+        <section>
+          <ng-template #tipContent >            
+            <div class="text-start" *ngIf="data.operational || data.nonoperational || data.degret || data.unknown;else elsetooltip">
+              <div>
+               <div *ngIf="data.operational"> <i class="fa-solid fa-circle button1"></i>&#160;&#160;&#160;Operational</div>
+              </div>
+              <div>
+                <div *ngIf="data.nonoperational"><i class="fa-solid fa-circle button2"></i>&#160;&#160;&#160;Non Operational</div>
+              </div>
+              <div>
+                <div *ngIf="data.degret"><i  class="fa-solid fa-circle button3"></i>&#160;&#160;&#160;Degret</div>
+              </div>
+              <div>
+                <div *ngIf="data.unknown"><i  class="fa-solid fa-circle button4"></i>&#160;&#160;&#160;Unknown</div>
+              </div>
+            </div>
+          </ng-template>
+        </section>
+      </div>
+        <div class="col-11">
+            <div class="row justify-content-center text-center">
+              <div class="col-sm-5 border border-dark bold" style="background-color:white">
+                {{data.flightname}}
+              </div>
+              <div class="col-sm-2 border border-dark" style="background-color:white">
+                {{data.flightid}}
+              </div>
+              <div class="col-sm-5 rad2 border border-dark bold" style="background-color:white">
+                {{data.departure}} &#160;&#160; <i class="fa-solid fa-plane"></i>&#160;&#160; {{data.arrival}}
+              </div>
+            </div>
+            <div class="row text-center">
+              <div class="col-sm-6 border border-dark fonts" style="background-color:white">
+                Last Message : {{data.messagetime}} minutes ago
+              </div>
+              <div class="col-sm-2 border border-dark fonts" style="background-color:white">
+                {{data.feet}} feet
+              </div>
+              <div class="col-sm-4 rad3 border border-dark fonts" style="background-color:white">
+                Landing in {{data.landinghrs}}h 00m 00s
+              </div>
+            </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+  </div>
+
+<ng-template #elsepart>
+  <div class="p-5 container bg-light text-center">
+    FLight Data not Available
+  </div>
+</ng-template>
+
+
+<ng-template #elsetooltip >
+  <div class="text-start">
+    <i class="fa-solid fa-circle button5"></i>&#160;&#160;&#160;Data Not Available
+  </div>
+</ng-template>

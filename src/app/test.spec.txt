@@ -1,0 +1,2919 @@
+describe('TailLiveMonitoringComponent', () => {
+
+ 
+  
+    const mockRouter = {
+  
+      navigate: jasmine.createSpy('navigate'),
+  
+      navigateByUrl: jasmine.createSpy('navigateByUrl')
+  
+    };
+  
+   
+  
+    let cacheSpy: any;
+  
+    configureTestSuite((() => {
+  
+      TestBed.configureTestingModule({
+  
+        declarations: [TailLiveMonitoringComponent],
+  
+        imports: [
+  
+          ArtefactModule,
+  
+          MatCardModule,
+  
+          MatSortModule,
+  
+          MatTableModule,
+  
+          RouterModule,
+  
+          HttpClientModule,
+  
+          RouterTestingModule,
+  
+          SharedComponentsModule,
+  
+          BrowserAnimationsModule,
+  
+          ToastrModule.forRoot(),
+  
+          HighchartsChartModule,
+  
+          ClipboardModule
+  
+        ],
+  
+        providers: [
+  
+          TailsDataService,
+  
+          LopaDataService,
+  
+          TitleCasePipe,
+  
+          { provide: LiveMonitoringService, useValue: mockLiveMonitoringService },
+  
+          { provide: commonService, useValue: mockCommonService },
+  
+          { provide: ActivatedRoute, useValue: activatedRoute },
+  
+          { provide: ObservableCacheService, useValue: mockObservableCacheService },
+  
+          { provide: TailService, useValue: mockTailService },
+  
+          { provide: Router, useValue: mockRouter },
+  
+          { provide: UserRoleAuthGuard, useValue: mockUserRoleGuard },
+  
+          ClipboardService
+  
+        ]
+  
+      })
+  
+        .compileComponents();
+  
+    }));
+  
+   
+  
+    configureTestSuite(() => {
+  
+      (<any>window).Lopa = jasmine.createSpy('Lopa');
+  
+      console.log('TailLiveMonitoringComponent');
+  
+      fixture = TestBed.createComponent(TailLiveMonitoringComponent);
+  
+      component = fixture.componentInstance;
+  
+   
+  
+   
+  
+      component.isNavigate = false;
+  
+      tailsDataService = TestBed.inject(TailsDataService);
+  
+      tailService = TestBed.inject(TailService);
+  
+      liveMonitoringService = TestBed.inject(LiveMonitoringService);
+  
+      commonService = TestBed.inject(CommonService);
+  
+      lopaDataService = TestBed.inject(LopaDataService);
+  
+      observableCacheService = TestBed.inject(ObservableCacheService);
+  
+      ga = TestBed.inject(GoogleAnaylticService);
+  
+      userRoleGuard = TestBed.inject(UserRoleAuthGuard);
+  
+      clipboard = TestBed.inject(ClipboardService);
+  
+      cacheSpy = spyOn(observableCacheService, 'get').and.callFake(arg => {
+  
+        if (arg.includes('lopa-details-error')) {
+  
+          return throwError({ error: 'error', status: '403' });
+  
+        } else if (arg.includes('lopa-details-empty')) {
+  
+          return Observable.of([]);
+  
+        } else if (arg.includes('lopa-details')) {
+  
+          return Observable.of(configResponse);
+  
+        }
+  
+      });
+  
+      fixture.detectChanges();
+  
+      component.isIfeLiveMonitoring = true;
+  
+      component.isFisRegistration = false;
+  
+      component.isSesConnectivityLiveMonitoring = true;
+  
+      component.isIpTv = true;
+  
+      component.isTest = true;
+  
+      component.selectedFlights = [1, 2];
+  
+      component.queryParams = {};
+  
+      fligthInfoDetails.cabinStatus = [{ name: 'Head-End', status: 'ko' },
+  
+      { name: 'First Class', status: 'ok' },
+  
+      { name: 'Business Class', status: 'ko' },
+  
+      { name: 'Upper Economy', status: 'ok' },
+  
+      { name: 'Economy Class', status: 'ok' },
+  
+      { name: 'IPTV', status: 'Unknown' }];
+  
+      component.cabinClassStatusConfig = {
+  
+        componentId: ['tail-live-monitoring'],
+  
+        cabinClassStatus: [],
+  
+        isConfigLoading: true,
+  
+        hostNames: [],
+  
+        tvStatus: []
+  
+      };
+  
+    });
+  
+    it('should create', () => {
+  
+      tailsDataService.sendData({ tailNumber: 'N100NN' });
+  
+      expect(component).toBeTruthy();
+  
+      component.lopaConfig = {
+  
+        deckConfig: []
+  
+      };
+  
+      expect(component).toBeDefined();
+  
+      localStorage.setItem('selectedFlights', JSON.stringify(component.selectedFlights));
+  
+      component.flightsDataSource = { filteredData: [{ id: 1, tailNumber: 'ACA100' }, { id: 2, tailNumber: 'ACA100' }] };
+  
+      expect(activatedRoute.queryParams).toBeDefined();
+  
+      expect(component.flightsDataSource).toBeDefined();
+  
+      expect(component.queryParams).toBeDefined();
+  
+      expect(component.flightsDataSource).toBeDefined();
+  
+      const treeTableSpy = spyOn(component, 'getTreeTableData').and.callThrough();
+  
+      component.historyView = true;
+  
+      component.ngOnInit();
+  
+      expect(treeTableSpy).toHaveBeenCalled();
+  
+    });
+  
+   
+  
+    it('should get lruTypes', () => {
+  
+      const lruTypes = spyOn(liveMonitoringService, 'getTailsDetails').and.callThrough();
+  
+      liveMonitoringService.getTailsDetails('AAL', 'N900UW', 'lru-types').map(res => {
+  
+        expect(lruTypes).toHaveBeenCalled();
+  
+      });
+  
+      component.isIfeLiveMonitoring = true;
+  
+      component.getTailsData();
+  
+      expect(component.hostNameConfig.hostnameDataSource).toBeDefined();
+  
+      expect(component.dataSource).toBeDefined();
+  
+      expect(lruTypes).toHaveBeenCalled();
+  
+      expect(component.lruTypeConfig.isLruTypeLoading).toBeTruthy();
+  
+    });
+  
+   
+  
+    it('should get otherLruTypes SAC and get tree table data', () => {
+  
+      component.isIfeLiveMonitoring = true;
+  
+      component.getTailsData();
+  
+      expect(component.hostNameConfig.hostnameDataSource).toBeDefined();
+  
+      expect(component.otherLruTypeConfig.otherLruTypeDataSoruce).toBeDefined();
+  
+      expect(component.lruTypeConfig.isLruTypeLoading).toBeTruthy();
+  
+      component.lruTypeConfig.icao = 'QTR';
+  
+      component.lruTypeConfig.tailNumber = 'A7-AME';
+  
+      const treeTableServiceSpy = spyOn(liveMonitoringService, 'getTailsDetails').and.returnValue(of(historicalFlightData));
+  
+      const treeTableFormatSpy = spyOn(component, 'getFormattedTreeData').and.callThrough();
+  
+      component.getTreeTableData();
+  
+      expect(treeTableServiceSpy).toHaveBeenCalledWith('QTR', 'A7-AME', 'history');
+  
+      expect(treeTableFormatSpy).toHaveBeenCalled();
+  
+      expect(component.columns).toBeDefined();
+  
+      expect(component.treeData).toBeDefined();
+  
+    });
+  
+   
+  
+    /*it('should get streaming-sessions', () => {
+  
+      const getTailsDetailsList = spyOn(liveMonitoringService, 'getTailsDetails').and.callThrough();
+  
+      liveMonitoringService.getTailsDetails('UAL', 'A7-AMI', 'streaming-sessions').subscribe(res => {
+  
+        expect(getTailsDetailsList).toHaveBeenCalled();
+  
+      });
+  
+      component.activeUserskpiCardObj.altitudeData = [1, 2, 3, 4, 5];
+  
+      component.activeUserskpiCardObj.internetUsersData = [1, 2, 3, 4, 5];
+  
+      component.activeUserskpiCardObj.iptvUsersData = [1, 2, 3, 4, 5];
+  
+      component.activeUserskpiCardObj.dataTransmitted = [1, 2, 3, 4, 5];
+  
+      component.activeUserskpiCardObj.dataReceived = [1, 2, 3, 4, 5];
+  
+      component.activeUserskpiCardObj.totalUsage = [1, 2, 3, 4, 5];
+  
+      component.formChartSeries(123456789);
+  
+      component.formIptvStatusData([123456789, 1]);
+  
+      component.replaceNullsforChart([null, null]);
+  
+      component.replaceNullsforChart([123, 345]);
+  
+      component.displayActiveUsersChart();
+  
+      component.displaySESTrendChart([]);
+  
+      component.displaySESTrendChart([
+  
+        {
+  
+          'historyid': 801,
+  
+          'signalQuality': '25.0',
+  
+          'bytesPeakData': 246666,
+  
+          'bytes': 12345,
+  
+          'altitude': 200,
+  
+          'packetErrorRate': '5.45004865527153',
+  
+          'tcpConnections': null,
+  
+          'terminalPowerLevel': '-20.0',
+  
+          'satelliteName': 'AMC15',
+  
+          'beamName': '5A',
+  
+          'messageReceivedTime': '2021-05-24T06:52:11Z',
+  
+          'updatedDate': '2021-05-24T06:52:12.000+0000'
+  
+        },
+  
+        {
+  
+          'historyid': 803,
+  
+          'signalQuality': '25.0',
+  
+          'bytesPeakData': 246666,
+  
+          'bytes': 12345,
+  
+          'altitude': 200,
+  
+          'packetErrorRate': '5.45004865527153',
+  
+          'tcpConnections': null,
+  
+          'terminalPowerLevel': '-20.0',
+  
+          'satelliteName': 'AMC15',
+  
+          'beamName': '5A',
+  
+          'messageReceivedTime': '2021-05-24T06:54:32Z',
+  
+          'updatedDate': '2021-05-24T06:54:32.000+0000'
+  
+        },
+  
+        {
+  
+          'historyid': 805,
+  
+          'signalQuality': '25.0',
+  
+          'bytesPeakData': 246666,
+  
+          'bytes': 12345,
+  
+          'altitude': 200,
+  
+          'packetErrorRate': '5.45004865527153',
+  
+          'tcpConnections': null,
+  
+          'terminalPowerLevel': '-20.0',
+  
+          'satelliteName': 'AMC15',
+  
+          'beamName': '5A',
+  
+          'messageReceivedTime': '2021-05-24T06:56:25Z',
+  
+          'updatedDate': '2021-05-24T06:56:25.000+0000'
+  
+        }
+  
+      ]);
+  
+    });
+  
+   
+  
+     it('displayActiveUsersChart method', () => {
+  
+      const mapPathSpy = spyOn(component, 'getMapPath').and.callThrough();
+  
+      const displayActiveUsersChartSpy = spyOn(component, 'displayActiveUsersChart').and.callThrough();
+  
+      const replaceNullSpy = spyOn(component, 'replaceNullsforChart').and.callThrough();
+  
+      const resetChartDataSpy = spyOn(component, 'resetChartData').and.callThrough();
+  
+      component.isSesConnectivityLiveMonitoring = true;
+  
+      component.connectivityPlatform = 'SES';
+  
+      component.getFligthInfoDetails(fligthInfoChartDetails);
+  
+      component.displayActiveUsersChart();
+  
+      const chartdata = component.formIptvStatusData([1, 2, 3, 4, 5, 6]);
+  
+      expect(chartdata).toEqual([[1, 2], [3, 4], [5, 6]]);
+  
+      component.formChartSeries([1620000089761]);
+  
+      expect(component.activeUserskpiCardObj.altitudeList).toEqual([1593464803000, null, 1593465103000, null, 1593465403000, null,
+  
+        1593465703000, null, [1620000089761], [1593464803000, null]]);
+  
+      expect(component.activeUserskpiCardObj.internetUsersList).toEqual([1593464803000, 10, 1593465103000, 10, 1593465403000, 10,
+  
+        1593465703000, 10, [1620000089761], [1593464803000, 10]]);
+  
+      expect(component.activeUserskpiCardObj.iptvUsersList).toEqual
+  
+      ([1593464803000, null, 1593465103000, null, 1593465403000, null, 1593465703000,
+  
+        null, [1620000089761], [1593464803000, null]]);
+  
+      expect(component.displayActiveUsersChart).toBeDefined();
+  
+      expect(component.activeUserskpiCardObj.coverageData).toBeDefined();
+  
+      expect(component.activeUserskpiCardObj.usageData).toBeDefined();
+  
+      expect(component.replaceNullsforChart).toBeDefined();
+  
+      expect(component.resetChartData).toBeDefined();
+  
+      expect(mapPathSpy).toHaveBeenCalledWith(fligthInfoChartDetails);
+  
+      expect(displayActiveUsersChartSpy).toHaveBeenCalled();
+  
+      expect(replaceNullSpy).toHaveBeenCalled();
+  
+      expect(resetChartDataSpy).toHaveBeenCalled();
+  
+      component.isSesConnectivityLiveMonitoring = undefined;
+  
+      component.connectivityPlatform = undefined;
+  
+    });
+  
+   
+  
+    it('displaySESTrendChart method', () => {
+  
+      const mapPathSpy = spyOn(component, 'getMapPath').and.callThrough();
+  
+      const displaySESTrendChartSpy = spyOn(component, 'displaySESTrendChart').and.callThrough();
+  
+      const resetChartDataSpy = spyOn(component, 'resetChartData').and.callThrough();
+  
+      component.isSesConnectivityLiveMonitoring = true;
+  
+      component.connectivityPlatform = 'SES';
+  
+      component.getFligthInfoDetails(fligthInfoChartDetails);
+  
+      component.displaySESTrendChart(fligthInfoChartDetails.sesSatelliteHistoryData);
+  
+      expect(Object.keys(component.chartOptionSES.yAxis)).toEqual(['0', '1']);
+  
+      expect(component.displaySESTrendChart).toBeDefined();
+  
+      expect(component.sesTrendkpiCardObj.coverageData).toBeDefined();
+  
+      expect(component.sesTrendkpiCardObj.timestampSource).toBeDefined();
+  
+      expect(component.resetChartData).toBeDefined();
+  
+      expect(mapPathSpy).toHaveBeenCalledWith(fligthInfoChartDetails);
+  
+      expect(displaySESTrendChartSpy).toHaveBeenCalled();
+  
+      expect(resetChartDataSpy).toHaveBeenCalled();
+  
+      component.isSesConnectivityLiveMonitoring = undefined;
+  
+      component.connectivityPlatform = undefined;
+  
+    }); */
+  
+   
+  
+    it('check if ses data for last 8 hours has altitude min 0 on yAxis', () => {
+  
+      component.displaySESTrendChart(fligthInfoChartDetails.sesSatelliteHistoryData);
+  
+      expect(component.chartOptionSES.yAxis).toEqual(sesDataMock);
+  
+    });
+  
+   
+  
+    it('should be defined resetDatasource', () => {
+  
+      component.resetDatasource();
+  
+      expect(component.lruTypeConfig.isLruTypeLoading).toBeTruthy();
+  
+      expect(component.connectivityData.isLoading).toBeTruthy();
+  
+    });
+  
+   
+  
+    /* it('should getFligthInfoDetails - arrival departure time', () => {
+  
+        const expectedCustomConfig = {
+  
+          'lastMessageReceived': '2020-07-20T13:44:25Z',
+  
+          'label': 'FLIGHT INFORMATION',
+  
+          'isCustomConfig': true,
+  
+          'flightNumber': 'THL2001',
+  
+          'departureAirport': 'MLB',
+  
+          'arrivalAirport': 'ATL',
+  
+          'altitude': '33 feet',
+  
+          'timeToDestination': '09h 45m 10s ',
+  
+          'isIpTv': false,
+  
+          'class': 'col-xl-2',
+  
+          'lastMessageMin': moment.utc().diff(moment.utc('2020-07-20T13:44:25Z'), 'minutes'),
+  
+          'isSesConnectivityLiveMonitoring': undefined,
+  
+          'arrival': '10/26/2020 22:49',
+  
+          'departure': '10/27/2020 23:49',
+  
+          'estimatedArrival': null,
+  
+          'estimatedDeparture': null
+  
+        };
+  
+        const mapConfigSpy = spyOn(component, 'getMapConfig').and.callThrough();
+  
+        component.getFligthInfoDetails(flightInfoConnectivity);
+  
+        expectedCustomConfig.timeToDestination = component.customConfig.timeToDestination;
+  
+        expect(component.customConfig).toEqual(expectedCustomConfig);
+  
+        expect(mapConfigSpy).toHaveBeenCalledWith(flightInfoConnectivity);
+  
+      });
+  
+   
+  
+      it('should getFligthInfoDetails', () => {
+  
+        component.mapConfig.modalName = 'connectivity';
+  
+        const expectedCustomConfig = {
+  
+          'lastMessageReceived': '2020-06-29T21:21:43Z',
+  
+          'label': 'FLIGHT INFORMATION',
+  
+          'isCustomConfig': true,
+  
+          'flightNumber': 'QTR1076',
+  
+          'departureAirport': 'TPA',
+  
+          'arrivalAirport': 'BOS',
+  
+          'altitude': '10,901 feet',
+  
+          'timeToDestination': '00h 00m 00s',
+  
+          'isIpTv': true,
+  
+          'class': 'col-xl-2',
+  
+          'lastMessageMin': moment.utc().diff(moment.utc('2020-06-29T21:21:43Z'), 'minutes'),
+  
+          'isSesConnectivityLiveMonitoring': undefined,
+  
+          'arrival': 'Unknown',
+  
+          'departure': 'Unknown',
+  
+          'estimatedArrival': null,
+  
+          'estimatedDeparture': null
+  
+        };
+  
+        const mapConfigSpy = spyOn(component, 'getMapConfig').and.callThrough();
+  
+        component.getFligthInfoDetails(fligthInfoDetails);
+  
+        const iptvIcon = component.cabinStatus.filter(element => element.name === 'IPTV');
+  
+        expect(component.customConfig).toEqual(expectedCustomConfig);
+  
+        expect(iptvIcon).toBeDefined();
+  
+        expect(mapConfigSpy).toHaveBeenCalledWith(fligthInfoDetails);
+  
+      });
+  
+    */
+  
+   
+  
+    it('should getFligthInfoDetails for Connectivity data', () => {
+  
+      const expectedCustomConfig = {
+  
+        'lastMessageReceived': '2020-07-20T13:44:25Z',
+  
+        'label': 'FLIGHT INFORMATION',
+  
+        'isCustomConfig': true,
+  
+        'flightNumber': 'THL2001',
+  
+        'departureAirport': 'MLB',
+  
+        'arrivalAirport': 'ATL',
+  
+        'altitude': '33 feet',
+  
+        'timeToDestination': '09h 45m 10s ',
+  
+        'isIpTv': false,
+  
+        'class': 'col-xl-2',
+  
+        'lastMessageMin': moment.utc().diff(moment.utc('2020-07-20T13:44:25Z'), 'minutes'),
+  
+        'isSesConnectivityLiveMonitoring': undefined,
+  
+        'arrival': '10/26/2020 22:49',
+  
+        'departure': '10/27/2020 23:49',
+  
+        'estimatedArrival': null,
+  
+        'estimatedDeparture': null
+  
+      };
+  
+      const mapConfigSpy = spyOn(component, 'getMapConfig').and.callThrough();
+  
+      component.getFligthInfoDetails(flightInfoConnectivity);
+  
+      expectedCustomConfig.timeToDestination = component.customConfig.timeToDestination;
+  
+      // expect(component.customConfig).toEqual(expectedCustomConfig);
+  
+      // expect(mapConfigSpy).toHaveBeenCalledWith(flightInfoConnectivity);
+  
+    });
+  
+   
+  
+    it('should calculate timetoDestination - with departure and estimatedArrival ', () => {
+  
+      const expectedCustomConfig = {
+  
+        'lastMessageReceived': '2020-07-20T13:44:25Z',
+  
+        'label': 'FLIGHT INFORMATION',
+  
+        'isCustomConfig': true,
+  
+        'flightNumber': 'THL2001',
+  
+        'departureAirport': 'MLB',
+  
+        'arrivalAirport': 'ATL',
+  
+        'altitude': '33 feet',
+  
+        'timeToDestination': '09h 55m 10s ',
+  
+        'isIpTv': false,
+  
+        'class': 'col-xl-2',
+  
+        'lastMessageMin': moment.utc().diff(moment.utc('2020-07-20T13:44:25Z'), 'minutes'),
+  
+        'isSesConnectivityLiveMonitoring': undefined,
+  
+        'arrival': null,
+  
+        'departure': '10/27/2020 23:49',
+  
+        'estimatedArrival': '10/26/2020 22:59',
+  
+        'estimatedDeparture': null
+  
+      };
+  
+      const mapConfigSpy = spyOn(component, 'getMapConfig').and.callThrough();
+  
+      flightInfoConnectivity.arrival = null;
+  
+      component.getFligthInfoDetails(flightInfoConnectivity);
+  
+      expectedCustomConfig.timeToDestination = component.customConfig.timeToDestination;
+  
+    });
+  
+   
+  
+    it('should calculate timetoDestination - with estimatedDeparture and estimatedArrival ', () => {
+  
+      const expectedCustomConfig = {
+  
+        'lastMessageReceived': '2020-07-20T13:44:25Z',
+  
+        'label': 'FLIGHT INFORMATION',
+  
+        'isCustomConfig': true,
+  
+        'flightNumber': 'THL2001',
+  
+        'departureAirport': 'MLB',
+  
+        'arrivalAirport': 'ATL',
+  
+        'altitude': '33 feet',
+  
+        'timeToDestination': '09h 44m 39s ',
+  
+        'isIpTv': false,
+  
+        'class': 'col-xl-2',
+  
+        'lastMessageMin': moment.utc().diff(moment.utc('2020-07-20T13:44:25Z'), 'minutes'),
+  
+        'isSesConnectivityLiveMonitoring': undefined,
+  
+        'arrival': null,
+  
+        'departure': null,
+  
+        'estimatedArrival': '10/26/2020 22:49',
+  
+        'estimatedDeparture': '10/27/2020 23:49'
+  
+      };
+  
+      const mapConfigSpy = spyOn(component, 'getMapConfig').and.callThrough();
+  
+      flightInfoConnectivity.arrival = null;
+  
+      flightInfoConnectivity.departure = null;
+  
+      flightInfoConnectivity.estimatedArrival = '2020-10-26T22:49:00Z';
+  
+      flightInfoConnectivity.estimatedDeparture = '2020-10-27T23:49:00Z';
+  
+      component.getFligthInfoDetails(flightInfoConnectivity);
+  
+      expectedCustomConfig.timeToDestination = component.customConfig.timeToDestination;
+  
+    });
+  
+   
+  
+    it('should getFligthInfoDetails - arrival departure unknown', () => {
+  
+      component.mapConfig.modalName = 'connectivity';
+  
+      const expectedCustomConfig = {
+  
+        'lastMessageReceived': '2020-06-29T21:21:43Z',
+  
+        'label': 'FLIGHT INFORMATION',
+  
+        'isCustomConfig': true,
+  
+        'flightNumber': 'QTR1076',
+  
+        'departureAirport': 'TPA',
+  
+        'arrivalAirport': 'BOS',
+  
+        'altitude': '10,901 feet',
+  
+        'timeToDestination': '00h 00m 00s',
+  
+        'isIpTv': true,
+  
+        'class': 'col-xl-2',
+  
+        'lastMessageMin': moment.utc().diff(moment.utc('2020-06-29T21:21:43Z'), 'minutes'),
+  
+        'isSesConnectivityLiveMonitoring': undefined,
+  
+        'arrival': 'Unknown',
+  
+        'departure': 'Unknown',
+  
+        'estimatedArrival': null,
+  
+        'estimatedDeparture': null
+  
+      };
+  
+      const mapConfigSpy = spyOn(component, 'getMapConfig').and.callThrough();
+  
+      component.getFligthInfoDetails(fligthInfoDetails);
+  
+    });
+  
+   
+  
+    it('should get pinPonts and flightMarking in MapConfig', () => {
+  
+      component.mapConfig.flightMarkingPoints = [];
+  
+      component.isDisplaysTV = false;
+  
+      component.isSesConnectivityLiveMonitoring = false;
+  
+      component.tvDetails = {};
+  
+      component.connectivityPlatform = 'KA-GX';
+  
+      const expectedPinPoints = {
+  
+        'departure': {
+  
+          'longitude': '-82.533203',
+  
+          'latitude': '27.9755',
+  
+          'city': 'Tampa',
+  
+          'airportName': 'Tampa',
+  
+          'airportIata': 'TPA',
+  
+          'country': 'United States'
+  
+        },
+  
+        'arrival': {
+  
+          'longitude': '-71.005203',
+  
+          'latitude': '42.3643',
+  
+          'city': 'Boston',
+  
+          'airportName': 'Boston',
+  
+          'airportIata': 'BOS',
+  
+          'country': 'United States'
+  
+        }
+  
+      };
+  
+      const expectedFlightMarking = [
+  
+        {
+  
+          'latitude': '21',
+  
+          'longitude': '-68',
+  
+          'status': 'GOOD',
+  
+          'airlineIcao': 'QTR',
+  
+          'tailNumber': 'A7-APF',
+  
+          'flightNumber': 'QTR1076',
+  
+          'fleetNumber': '0007',
+  
+          'departureAirport': 'TPA',
+  
+          'arrivalAirport': 'BOS',
+  
+          'timeToDestination': 0,
+  
+          'updatedDate': '2020-06-29T21:21:43Z',
+  
+          'heading': '47.8',
+  
+          'arrivalCity': 'Boston',
+  
+          'departureCity': 'Tampa',
+  
+          'connectivity': undefined,
+  
+          'isIpTv': true,
+  
+          'isFisRegistered': undefined,
+  
+          'flightPhase': 'Curse',
+  
+          'internetUsers': 0,
+  
+          'ipTvUsers': 0,
+  
+          'transmittedUsage': '',
+  
+          'receivedUsage': '',
+  
+          'isSesConnectivityLiveMonitoring': true,
+  
+          'cabinStatus':
+  
+            [{ name: 'Head-End', status: 'ko' },
+  
+            { name: 'First Class', status: 'ok' },
+  
+            { name: 'Business Class', status: 'ko' },
+  
+            { name: 'Upper Economy', status: 'ok' },
+  
+            { name: 'Economy Class', status: 'ok' },
+  
+            { name: 'TV', status: 'none', tooltipData: null },
+  
+            { name: 'IPTV', status: 'none', tooltipData: null }]
+  
+        }
+  
+      ];
+  
+      const mapPathSpy = spyOn(component, 'getMapPath').and.callThrough();
+  
+      component.getFligthInfoDetails(fligthInfoDetails);
+  
+      expect(component.customConfig.isIpTv).toBe(true);
+  
+    });
+  
+   
+  
+    it('should get pinPonts and flightMarking in MapConfig for connectivity data', () => {
+  
+      component.mapConfig.flightMarkingPoints = [];
+  
+      component.customConfig['internetUsers'] = -1;
+  
+     const expectedPinPoints = {
+  
+        'departure': {
+  
+          'longitude': '-80.645302',
+  
+          'latitude': '28.1028',
+  
+          'city': 'Melbourne',
+  
+          'airportName': 'Melbourne',
+  
+          'airportIata': 'MLB',
+  
+          'country': 'United States'
+  
+        },
+  
+        'arrival': {
+  
+          'longitude': '-84.428101',
+  
+          'latitude': '33.6367',
+  
+          'city': 'Atlanta',
+  
+          'airportName': 'Atlanta',
+  
+          'airportIata': 'ATL',
+  
+          'country': 'United States'
+  
+        }
+  
+      };
+  
+      const expectedFlightMarking = [
+  
+        {
+  
+          'latitude': '30.10275269',
+  
+          'longitude': '-81.64525604',
+  
+          'status': 'Degraded',
+  
+          'airlineIcao': 'JBU',
+  
+          'tailNumber': 'JBL100',
+  
+          'flightNumber': 'THL2001',
+  
+          'fleetNumber': undefined,
+  
+          'departureAirport': 'MLB',
+  
+          'arrivalAirport': 'ATL',
+  
+          'timeToDestination': 130,
+  
+          'updatedDate': '2020-07-20T13:44:25Z',
+  
+          'heading': '330.0',
+  
+          'arrivalCity': 'Atlanta',
+  
+          'departureCity': 'Melbourne',
+  
+          'isIpTv': false,
+  
+          'connectivity': [
+  
+            {
+  
+              'name': 'PAYMENT',
+  
+              'status': 'Operational'
+  
+            },
+  
+            {
+  
+              'name': 'INTERNET',
+  
+              'status': 'Non-Operational'
+  
+            },
+  
+            {
+  
+              'name': 'WIRELESS IFE',
+  
+              'status': 'Degraded'
+  
+            }
+  
+          ],
+  
+          'cabinStatus': undefined,
+  
+          'isFisRegistered': undefined,
+  
+        }
+  
+      ];
+  
+      const mapPathSpy = spyOn(component, 'getMapPath').and.callThrough();
+  
+      component.getFligthInfoDetails(flightInfoConnectivity);
+  
+    });
+  
+   
+  
+    it('should get fligth path coords', () => {
+  
+      component.mapConfig.modalName = 'connectivity';
+  
+      const expectedFlightPaths = [
+  
+        {
+  
+          'longitude': '-67.08389',
+  
+          'latitude': '19.619179',
+  
+          'description': {
+  
+            'lateMessageRecievedTime': '2020-06-29T21:06:43Z',
+  
+            'tailStatus': 'Operational',
+  
+            'statuses': [
+  
+              {
+  
+                'name': 'Head-End',
+  
+                'status': 'Operational'
+  
+              },
+  
+              {
+  
+                'name': 'Economy Class',
+  
+                'status': 'Operational'
+  
+              }
+  
+            ],
+  
+            'altitude': '360',
+  
+            'latitude': '19.619179',
+  
+            'longitude': '-67.08389',
+  
+            'flightPhase': 'CREW',
+  
+            'transmittedData': '0',
+  
+            'isSesConnectivityLiveMonitoring': undefined,
+  
+            'receivedData': '0',
+  
+            'connectivityStatus': null
+  
+          }
+  
+        },
+  
+        {
+  
+          'longitude': '-67.54996',
+  
+          'latitude': '20.109959',
+  
+          'description': {
+  
+            'lateMessageRecievedTime': '2020-06-29T21:11:43Z',
+  
+            'tailStatus': 'Operational',
+  
+            'statuses': [
+  
+              {
+  
+                'name': 'Head-End',
+  
+                'status': 'Operational'
+  
+              },
+  
+              {
+  
+                'name': 'Economy Class',
+  
+                'status': 'Operational'
+  
+              }
+  
+            ],
+  
+            'altitude': '360',
+  
+            'latitude': '20.109959',
+  
+            'longitude': '-67.54996',
+  
+            'flightPhase': 'CREW',
+  
+            'transmittedData': '0',
+  
+            'isSesConnectivityLiveMonitoring': undefined,
+  
+            'receivedData': '0',
+  
+            'connectivityStatus': null
+  
+          }
+  
+        },
+  
+        {
+  
+          'longitude': '-68.013954',
+  
+          'latitude': '20.594902',
+  
+          'description': {
+  
+            'lateMessageRecievedTime': '2020-06-29T21:16:43Z',
+  
+            'tailStatus': 'Non-Operational',
+  
+            'statuses': [
+  
+              {
+  
+                'name': 'Head-End',
+  
+                'status': 'Operational'
+  
+              },
+  
+              {
+  
+                'name': 'Economy Class',
+  
+                'status': 'Operational'
+  
+              }
+  
+            ],
+  
+            'altitude': '360',
+  
+            'latitude': '20.594902',
+  
+            'longitude': '-68.013954',
+  
+            'flightPhase': 'CREW',
+  
+            'transmittedData': '0',
+  
+            'isSesConnectivityLiveMonitoring': undefined,
+  
+            'receivedData': '0',
+  
+            'connectivityStatus': null
+  
+          }
+  
+        },
+  
+        {
+  
+          'longitude': '-68',
+  
+          'latitude': '21',
+  
+          'description': {
+  
+            'lateMessageRecievedTime': '2020-06-29T21:21:43Z',
+  
+            'tailStatus': 'Operational',
+  
+            'statuses': [
+  
+              {
+  
+                'name': 'Head-End',
+  
+                'status': 'Operational'
+  
+              },
+  
+              {
+  
+                'name': 'Economy Class',
+  
+                'status': 'Operational'
+  
+              }
+  
+            ],
+  
+            'altitude': '360',
+  
+            'latitude': '21',
+  
+            'longitude': '-68',
+  
+            'flightPhase': 'CREW',
+  
+            'transmittedData': '0',
+  
+            'isSesConnectivityLiveMonitoring': undefined,
+  
+            'receivedData': '0',
+  
+            'connectivityStatus': null
+  
+          }
+  
+        }
+  
+      ];
+  
+      component.getFligthInfoDetails(fligthInfoDetails);
+  
+      expect(component.getFligthInfoDetails).toBeDefined();
+  
+    });
+  
+   
+  
+    it('should validate tv info for JBU', () => {
+  
+      component.getFligthInfoDetails(fligthInfoDetailsJBU);
+  
+      expect(Object.keys(component.tvDetails)).toContain('antennaState');
+  
+      expect(Object.keys(component.tvDetails)).toContain('rssi');
+  
+      expect(Object.keys(component.tvDetails)).toContain('serviceState');
+  
+      expect(Object.keys(component.tvDetails)).toContain('totalTunerLocked');
+  
+      expect(component.tvDetails).toEqual(fligthInfoDetailsJBU.tvStatus);
+  
+      expect(component.isTVStatusLoading).toBeFalsy();
+  
+    });
+  
+   
+  
+    it('should validate tv info with out of coverage for JBU ', () => {
+  
+      fligthInfoDetailsJBU.tvStatus.status = 'OUT_OF_COVERAGE';
+  
+      component.getFligthInfoDetails(fligthInfoDetailsJBU);
+  
+      expect(Object.keys(component.tvDetails)).toContain('antennaState');
+  
+      expect(Object.keys(component.tvDetails)).toContain('rssi');
+  
+      expect(Object.keys(component.tvDetails)).toContain('serviceState');
+  
+      expect(Object.keys(component.tvDetails)).toContain('totalTunerLocked');
+  
+      expect(component.tvDetails).toEqual(fligthInfoDetailsJBU.tvStatus);
+  
+      expect(component.isTVStatusLoading).toBeFalsy();
+  
+    });
+  
+   
+  
+    it('should validate tv info for other airlines except JBU', () => {
+  
+      component.getFligthInfoDetails(fligthInfoDetails);
+  
+      expect(component.tvDetails).toEqual({});
+  
+      expect(component.isTVStatusLoading).toBeFalsy();
+  
+    });
+  
+   
+  
+    it('should get lopa', () => {
+  
+      component.lruTypeConfig.icao = 'AAL';
+  
+      component.lruTypeConfig.tailNumber = 'N100NA';
+  
+      component.getLopaData();
+  
+      expect(cacheSpy).toHaveBeenCalled();
+  
+      const spyGetLopaDetails = spyOn(tailService, 'getLopaDetails').and.callThrough();
+  
+      tailService.getLopaDetails('AAL', 'N100N').subscribe(res => {
+  
+        expect(spyGetLopaDetails).toHaveBeenCalled();
+  
+      });
+  
+    });
+  
+   
+  
+    it('should define lopaServerChange method', () => {
+  
+      const lopaDataSpy = spyOn(component, 'reInitializeLopaData').and.callThrough();
+  
+      component.lopaServerChange('None');
+  
+      expect(lopaDataSpy).toHaveBeenCalled();
+  
+      expect(component.selectedServer).toBe('None');
+  
+    });
+  
+   
+  
+    it('switchHostnameView should be defined', () => {
+  
+      const gaSpy = spyOn(ga, 'gaEvent').and.callThrough();
+  
+      component.hostnameView = 'grid';
+  
+      component.switchHostnameView('list');
+  
+      expect(component.hostnameView).toBe('list');
+  
+      expect(gaSpy).toHaveBeenCalledWith('User actions', 'Display hostnames in list', 'Tail - Live monitoring');
+  
+      component.hostnameView = 'list';
+  
+      component.switchHostnameView('grid');
+  
+    });
+  
+   
+  
+    it('checkValidValues should be defined for valid values', () => {
+  
+      const result = component.checkValidValues(0);
+  
+      expect(result).toBeTruthy();
+  
+    });
+  
+   
+  
+    it('checkValidValues should be defined for invalid values', () => {
+  
+      const result = component.checkValidValues(null);
+  
+      expect(result).toBeFalsy();
+  
+    });
+  
+   
+  
+    it('getLruTypesData should be defined', () => {
+  
+      const lruTypes = [{
+  
+        'id': 75939,
+  
+        'tailId': 2,
+  
+        'lruType': 'DSU',
+  
+        'expected': 3,
+  
+        'reporting': 2,
+  
+        'softwareDownloaded': 3,
+  
+        'contentDownloadComplete': 3,
+  
+        'networkFaults': 1,
+  
+        'softwareFaults': 1,
+  
+        'failures': 6,
+  
+        'resets': 5
+  
+      }, {
+  
+        'id': 75940,
+  
+        'tailId': 2,
+  
+        'lruType': 'SVDU',
+  
+        'expected': 300,
+  
+        'reporting': 300,
+  
+        'softwareDownloaded': 298,
+  
+        'contentDownloadComplete': 270,
+  
+        'networkFaults': 0,
+  
+        'softwareFaults': 0,
+  
+        'failures': 0,
+  
+        'resets': 2
+  
+      }, {
+  
+        'id': 759,
+  
+        'tailId': 3,
+  
+       'lruType': 'SVDU',
+  
+        'expected': 300,
+  
+        'reporting': null,
+  
+        'softwareDownloaded': null,
+  
+        'contentDownloadComplete': null,
+  
+        'networkFaults': null,
+  
+        'softwareFaults': null,
+  
+        'failures': 0,
+  
+        'resets': 2
+  
+      }, {
+  
+        'id': 780,
+  
+        'tailId': 3,
+  
+        'lruType': 'ICMT2',
+  
+        'expected': 0,
+  
+        'reporting': null,
+  
+        'softwareDownloaded': null,
+  
+        'contentDownloadComplete': 0,
+  
+        'networkFaults': null,
+  
+        'softwareFaults': null,
+  
+        'failures': 0,
+  
+        'resets': 3
+  
+      }];
+  
+      const lrutypesDataOutput = [{
+  
+        softwareFaults: '1 / 3',
+  
+        networkFaults: '1 / 3',
+  
+        contentDownloadComplete: '3 / 3',
+  
+        softwareDownloaded: '3 / 3',
+  
+        reporting: '2 / 3',
+  
+        lruType: 'DSU',
+  
+        failures: 6,
+  
+        resets: 5,
+  
+        softwareFaultsClass: 'circle circle-danger',
+  
+        networkFaultsClass: 'circle circle-danger',
+  
+        contentDownloadCompleteClass: 'circle circle-success',
+  
+        softwareDownloadedClass: 'circle circle-success',
+  
+        reportingClass: 'circle circle-danger'
+  
+      }, {
+  
+        softwareFaults: '0 / 300',
+  
+        networkFaults: '0 / 300',
+  
+        contentDownloadComplete: '270 / 300',
+  
+        softwareDownloaded: '298 / 300',
+  
+        reporting: '300 / 300',
+  
+        lruType: 'SVDU',
+  
+        failures: 0,
+  
+        resets: 2,
+  
+        softwareFaultsClass: 'circle circle-success',
+  
+        networkFaultsClass: 'circle circle-success',
+  
+        contentDownloadCompleteClass: 'circle circle-danger',
+  
+        softwareDownloadedClass: 'circle circle-danger',
+  
+        reportingClass: 'circle circle-success'
+  
+      }, {
+  
+        softwareFaults: null,
+  
+        networkFaults: null,
+  
+        contentDownloadComplete: null,
+  
+        softwareDownloaded: null,
+  
+        reporting: null,
+  
+        lruType: 'SVDU',
+  
+        failures: 0,
+  
+        resets: 2,
+  
+        softwareFaultsClass: 'circle circle-danger',
+  
+        networkFaultsClass: 'circle circle-danger',
+  
+        contentDownloadCompleteClass: 'circle circle-danger',
+  
+        softwareDownloadedClass: 'circle circle-danger',
+  
+        reportingClass: 'circle circle-danger'
+  
+      }, {
+  
+        softwareFaults: null,
+  
+        networkFaults: null,
+  
+        contentDownloadComplete: 'N/A',
+  
+        softwareDownloaded: null,
+  
+        reporting: null,
+  
+        lruType: 'ICMT2',
+  
+        failures: 0,
+  
+        resets: 3,
+  
+        softwareFaultsClass: 'circle circle-danger',
+  
+        networkFaultsClass: 'circle circle-danger',
+  
+        contentDownloadCompleteClass: '',
+  
+        softwareDownloadedClass: 'circle circle-danger',
+  
+        reportingClass: 'circle circle-danger'
+  
+      }];
+  
+      const lrutypesData = component.getLruTypesData(lruTypes);
+  
+      expect(lrutypesData).toEqual(lrutypesDataOutput);
+  
+    });
+  
+   
+  
+    it('getLruTypesData with connectivity DSU expected', () => {
+  
+      component.hostnameList = [{ 'hostname': 'DSU23', 'count': '0' }];
+  
+      component.lruTypeConfig.icao = 'QTR';
+  
+      const lruTypes = [{
+  
+        'id': 75939,
+  
+        'tailId': 2,
+  
+        'lruType': 'DSU',
+  
+        'expected': 3,
+  
+        'reporting': 2,
+  
+        'softwareDownloaded': 3,
+  
+        'contentDownloadComplete': 2,
+  
+        'networkFaults': 1,
+  
+        'softwareFaults': 1,
+  
+        'failures': 6,
+  
+        'resets': 5
+  
+      }];
+  
+      const lrutypesDataOutput = [{
+  
+        softwareFaults: '1 / 3',
+  
+        networkFaults: '1 / 3',
+  
+        contentDownloadComplete: '2 / 2',
+  
+        softwareDownloaded: '3 / 3',
+  
+        reporting: '2 / 3',
+  
+        lruType: 'DSU',
+  
+        failures: 6,
+  
+        resets: 5,
+  
+        softwareFaultsClass: 'circle circle-danger',
+  
+        networkFaultsClass: 'circle circle-danger',
+  
+        contentDownloadCompleteClass: 'circle circle-success',
+  
+        softwareDownloadedClass: 'circle circle-success',
+  
+        reportingClass: 'circle circle-danger'
+  
+      }];
+  
+      const lrutypesData = component.getLruTypesData(lruTypes);
+  
+      expect(lrutypesData).toEqual(lrutypesDataOutput);
+  
+    });
+  
+   
+  
+    it('checkLruTypeWithAirline should be defined with connectivity DSU', () => {
+  
+      component.hostnameList = [{ 'hostname': 'DSU23', 'count': '0' }];
+  
+      component.lruTypeConfig.icao = 'QTR';
+  
+      const lruCount = component.checkLruTypeWithAirline('DSU2', 4);
+  
+      expect(lruCount).toBe(3);
+  
+   });
+  
+   
+  
+    it('checkLruTypeWithAirline should be defined without connectivity DSU', () => {
+  
+      component.hostnameList = [{ 'hostname': 'DSU2', 'count': '0' }];
+  
+      component.lruTypeConfig.icao = 'QTR';
+  
+      const lruCount = component.checkLruTypeWithAirline('DSU3', 2);
+  
+      expect(lruCount).toBe(2);
+  
+    });
+  
+   
+  
+    it('should verify tooltipOver', () => {
+  
+      component.tooltipOver('over');
+  
+      component.tooltipOver('out');
+  
+      expect(component.tooltipOver).toBeDefined();
+  
+    });
+  
+   
+  
+    it('should get Connectivity data', () => {
+  
+      const getTailsDetailsList = spyOn(liveMonitoringService, 'getTailsDetails').and.callThrough();
+  
+      liveMonitoringService.getTailsDetails('AAL', 'N900UW', 'connectivity').subscribe(res => {
+  
+        expect(getTailsDetailsList).toHaveBeenCalled();
+  
+      });
+  
+    });
+  
+   
+  
+    it('should call getConnectivityDetails', () => {
+  
+      const connectivityData = {
+  
+        'components': {
+  
+          'Service': [
+  
+            {
+  
+              'name': 'PAYMENT',
+  
+              'subType': null,
+  
+              'status': 'Non-Operational',
+  
+              'faultReason': []
+  
+            },
+  
+            {
+  
+              'name': 'INTERNET',
+  
+              'subType': null,
+  
+              'status': 'Non-Operational',
+  
+              'faultReason': []
+  
+            },
+  
+            {
+  
+              'name': 'WIRELESS IFE',
+  
+              'subType': null,
+  
+              'status': 'Non-Operational',
+  
+              'faultReason': []
+  
+            },
+  
+            {
+  
+              'name': 'IPTV',
+  
+              'subType': null,
+  
+              'status': null,
+  
+              'faultReason': []
+  
+            }
+  
+          ],
+  
+          'Hardware': [
+  
+            {
+  
+              'name': 'ACC',
+  
+              'subType': null,
+  
+              'status': 'Operational',
+  
+              'faultReason': []
+  
+            },
+  
+            {
+  
+              'name': 'CONNVM',
+  
+              'subType': null,
+  
+              'status': 'Operational',
+  
+              'faultReason': []
+  
+            },
+  
+            {
+  
+              'name': 'MODEM',
+  
+              'subType': null,
+  
+              'status': 'Operational',
+  
+              'faultReason': []
+  
+            },
+  
+            {
+  
+              'name': 'ANTENNA',
+  
+              'subType': null,
+  
+              'status': 'Operational',
+  
+              'faultReason': []
+  
+            }
+  
+          ],
+  
+          'AircraftInput': [
+  
+            {
+  
+              'name': 'DOORS',
+  
+              'subType': null,
+  
+              'status': 'Open',
+  
+              'faultReason': []
+  
+            },
+  
+            {
+  
+              'name': 'ENGINES',
+  
+              'subType': null,
+  
+              'status': 'On',
+  
+              'faultReason': []
+  
+            }
+  
+          ]
+  
+        },
+  
+        'isLoading': true
+  
+      };
+  
+      const getsortedArray = spyOn(commonService, 'sortAlphaNumbericOrderByField').and.callThrough();
+  
+      component.getConnectivityDetails(connectivityData);
+  
+      expect(connectivityData.components).toBeDefined();
+  
+      expect(getsortedArray).toHaveBeenCalled();
+  
+      expect(component.connectivityData.components.Service).toEqual(sortComponentData.components.Service);
+  
+      expect(component.connectivityData.isLoading).toBeFalsy();
+  
+    });
+  
+   
+  
+    it('should call getConnectivityDetails reset Existing component', () => {
+  
+      const connectivityData = {
+  
+        components: {
+  
+          Service: [],
+  
+          Hardware: [],
+  
+          AircraftInput: []
+  
+        },
+  
+        isLoading: true
+  
+      };
+  
+      component.getConnectivityDetails(connectivityData);
+  
+      expect(connectivityData.components.Service.length).toEqual(0);
+  
+      expect(connectivityData.components.Hardware.length).toEqual(0);
+  
+      expect(connectivityData.components.AircraftInput.length).toEqual(0);
+  
+      expect(component.connectivityData.isLoading).toBeFalsy();
+  
+    });
+  
+   
+  
+    it('should be defined displayBeamsOptions with GX beam', () => {
+  
+      component.connectivityPlatform = 'KA-GX';
+  
+      component.isDisplaysTV = false;
+  
+      component.displayBeamsOptions();
+  
+      expect(component.displayBeamsOptions).toBeDefined();
+  
+      expect(component.mapConfig.beamList).toEqual([{ 'name': 'None' }, { 'name': 'Inmarsat GX' }]);
+  
+      expect(component.mapConfig.defaultSelectedBeam).toEqual('Inmarsat GX');
+  
+    });
+  
+   
+  
+    it('should be defined displayBeamsOptions with SES beam', () => {
+  
+      component.isSesConnectivityLiveMonitoring = true;
+  
+      component.connectivityPlatform = 'SES';
+  
+      component.isDisplaysTV = false;
+  
+      component.displayBeamsOptions();
+  
+      expect(component.displayBeamsOptions).toBeDefined();
+  
+      expect(component.mapConfig.beamList).toEqual([{ 'name': 'None' }, { 'name': 'SES' }]);
+  
+    });
+  
+   
+  
+    it('should be defined displayBeamsOptions with TV details', () => {
+  
+      component.isSesConnectivityLiveMonitoring = false;
+  
+      component.connectivityPlatform = null;
+  
+      component.cabinStatus = [{ name: 'TV' }];
+  
+      component.isDisplaysTV = true;
+  
+      component.displayBeamsOptions();
+  
+      expect(component.displayBeamsOptions).toBeDefined();
+  
+      expect(component.mapConfig.beamList).toEqual([{ 'name': 'None' }, { 'name': 'Direct TV' }]);
+  
+      expect(component.mapConfig.defaultSelectedBeam).toEqual('Direct TV');
+  
+    });
+  
+   
+  
+    it('should be defined displayBeamsOptions with None', () => {
+  
+      component.connectivityPlatform = null;
+  
+      component.cabinStatus = [];
+  
+      component.isDisplaysTV = false;
+  
+      component.displayBeamsOptions();
+  
+      expect(component.displayBeamsOptions).toBeDefined();
+  
+      expect(component.mapConfig.beamList).toEqual([]);
+  
+      expect(component.mapConfig.defaultSelectedBeam).toEqual('None');
+  
+    });
+  
+   
+  
+    it('should verify combineApiResp', () => {
+  
+      const lruTypes = {
+  
+        'lruTypes': [
+  
+          {
+  
+            'id': 1391193,
+  
+            'tailId': 224,
+  
+            'lruType': 'DSUD4',
+  
+            'expected': 2,
+  
+            'reporting': 2,
+  
+            'softwareDownloaded': 2,
+  
+            'contentDownloadComplete': 2,
+  
+            'networkFaults': 0,
+  
+            'softwareFaults': 0,
+  
+            'failures': 0,
+  
+            'resets': 0
+  
+          },
+  
+          {
+  
+            'id': 1391194,
+  
+            'tailId': 224,
+  
+            'lruType': 'ICMT4',
+  
+            'expected': 1,
+  
+            'reporting': 1,
+  
+            'softwareDownloaded': 1,
+  
+            'contentDownloadComplete': 0,
+  
+            'networkFaults': 0,
+  
+            'softwareFaults': 0,
+  
+            'failures': 0,
+  
+            'resets': 0
+  
+          },
+  
+          {
+  
+            'id': 1391195,
+  
+            'tailId': 224,
+  
+            'lruType': 'SVDU5',
+  
+            'expected': 162,
+  
+            'reporting': 162,
+  
+            'softwareDownloaded': 43,
+  
+            'contentDownloadComplete': 160,
+  
+            'networkFaults': 0,
+  
+            'softwareFaults': 119,
+  
+            'failures': 1309,
+  
+            'resets': 0
+  
+          },
+  
+          {
+  
+            'id': 1391198,
+  
+            'tailId': 224,
+  
+            'lruType': 'LAIC',
+  
+            'expected': 1,
+  
+            'reporting': 1,
+  
+            'softwareDownloaded': 1,
+  
+            'contentDownloadComplete': 0,
+  
+            'networkFaults': 0,
+  
+            'softwareFaults': 0,
+  
+            'failures': 0,
+  
+            'resets': 0
+  
+          }
+  
+        ],
+  
+        'otherAircraftEquipments': [
+  
+          {
+  
+            'id': 1391198,
+  
+            'tailId': 224,
+  
+            'lruType': 'LAIC',
+  
+            'expected': 1,
+  
+            'reporting': 1,
+  
+            'softwareDownloaded': 1,
+  
+            'contentDownloadComplete': 0,
+  
+            'networkFaults': 0,
+  
+            'softwareFaults': 0,
+  
+            'failures': 0,
+  
+            'resets': 0
+  
+          }
+  
+        ]
+  
+      };
+  
+   
+  
+      const hostNames = [
+  
+        {
+  
+          'id': 20989955,
+  
+          'hostname': 'SVDU18F',
+  
+          'lruPartNumber': '186001-103',
+  
+          'serialNumber': 'K1743724',
+  
+          'failures': 11,
+  
+          'commandedResets': 0,
+  
+          'uncommandedResets': 0
+  
+        },
+  
+        {
+  
+          'id': 20989956,
+  
+          'hostname': 'SVDU18E',
+  
+          'lruPartNumber': '186001-103',
+  
+          'serialNumber': 'K1915547',
+  
+          'failures': 11,
+  
+          'commandedResets': 0,
+  
+          'uncommandedResets': 0
+  
+        }
+  
+      ];
+  
+      const streamSessions = [
+  
+        {
+  
+          'server': 'DSU1',
+  
+          'currentStreamingSessions': 8,
+  
+          'maximumStreamingSessions': 167
+  
+        },
+  
+        {
+  
+          'server': 'DSU2',
+  
+          'currentStreamingSessions': 5,
+  
+          'maximumStreamingSessions': 167
+  
+        }
+  
+      ];
+  
+      component.combineApiResp(lruTypes, hostNames, streamSessions);
+  
+      expect(component.otherLruTypeConfig).toBeDefined();
+  
+      expect(component.otherLruTypeConfig.otherLruTypeDataSoruce).toBeDefined();
+  
+      expect(component.otherLruTypeConfig.otherLruTypeDataSoruce.data.length).toBe(1);
+  
+      expect(component.combineApiResp).toBeDefined();
+  
+    });
+  
+   
+  
+    it('should verify combineApiResp with lruType error', () => {
+  
+      const lruTypes = {
+  
+        error: {
+  
+          message: 'Not found'
+  
+        }
+  
+      };
+  
+   
+  
+      const hostNames = {
+  
+        error: {
+  
+          message: 'Not found'
+  
+        }
+  
+      };
+  
+      const streamSessions = [
+  
+        {
+  
+          'server': 'DSU1',
+  
+          'currentStreamingSessions': 8,
+  
+          'maximumStreamingSessions': 167
+  
+        },
+  
+        {
+  
+          'server': 'DSU2',
+  
+          'currentStreamingSessions': 5,
+  
+          'maximumStreamingSessions': 167
+  
+        }
+  
+      ];
+  
+      const navigateToNotFoundAccessDeniedzSpy = spyOn(commonService, 'navigateToNotFoundAccessDenied').and.callThrough();
+  
+      component.combineApiResp(lruTypes, hostNames, streamSessions);
+  
+      expect(component.lruTypeConfig.isLruTypeLoading).toBeFalsy();
+  
+      expect(navigateToNotFoundAccessDeniedzSpy).toHaveBeenCalledWith(lruTypes.error);
+  
+    });
+  
+   
+  
+    it('should verify getSatelliteInformation with True status', () => {
+  
+      const satelliteData = [{
+  
+        'configurationId': 778,
+  
+        'signalQuality': '25.0',
+  
+        'packetErrorRate': '5.45004865527153',
+  
+        'tcpConnections': '45',
+  
+        'terminalPowerLevel': '-20.0',
+  
+        'satelliteName': 'AMC15',
+  
+        'beamName': '5A',
+  
+        'bytesPeakData': 246666,
+  
+        'altitude': 200,
+  
+        'bytes': 12345,
+  
+        'messageReceivedTime': '2021-05-24T06:56:25Z',
+  
+        'status': true,
+  
+        'statusMessage': 'OK',
+  
+        'updatedDate': '2021-05-24T06:56:25Z',
+  
+      }];
+  
+      const calculateSpy = spyOn(commonService, 'calculateLastMessageReceived').and.callThrough();
+  
+      component.getSatelliteInformation(satelliteData);
+  
+      expect(component.sectionTitleConfig.labelTxt).toContain('Updated at');
+  
+      expect(calculateSpy).toHaveBeenCalled();
+  
+    });
+  
+    it('should verify getSatelliteInformation', () => {
+  
+      const satelliteData = [{
+  
+        'configurationId': 778,
+  
+        'signalQuality': null,
+  
+        'packetErrorRate': '5.45004865527153',
+  
+        'tcpConnections': null,
+  
+        'terminalPowerLevel': null,
+  
+        'satelliteName': 'AMC15',
+  
+        'beamName': '5A',
+  
+        'bytesPeakData': 246666,
+  
+       'altitude': null,
+  
+        'bytes': 12345,
+  
+        'messageReceivedTime': null,
+  
+        'status': true,
+  
+        'statusMessage': 'OK',
+  
+        'updatedDate': null,
+  
+      }];
+  
+      component.getSatelliteInformation(satelliteData);
+  
+      expect(component.getSatelliteInformation).toBeDefined();
+  
+    });
+  
+    it('should verify getSatelliteInformation with False status', () => {
+  
+      const satelliteData = [{
+  
+        'configurationId': 778,
+  
+        'signalQuality': '25.0',
+  
+        'bytesPeakData': 246666,
+  
+        'altitude': 33,
+  
+        'bytes': 12345,
+  
+        'packetErrorRate': '5.45004865527153',
+  
+        'tcpConnections': '25',
+  
+        'terminalPowerLevel': '25',
+  
+        'satelliteName': 'AMC15',
+  
+        'beamName': '5A',
+  
+        'messageReceivedTime': '2021-05-24T06:56:25Z',
+  
+        'status': false,
+  
+        'statusMessage': '',
+  
+        'updatedDate': '2021-05-24 06:56:25'
+  
+      }];
+  
+      const calculateSpy = spyOn(commonService, 'calculateLastMessageReceived').and.callThrough();
+  
+      component.getSatelliteInformation(satelliteData);
+  
+      expect(calculateSpy).toHaveBeenCalled();
+  
+      expect(component.satelliteStatusMessage).toEqual('');
+  
+    });
+  
+   
+  
+    /*it('should get the tree structured data', () => {
+  
+      component.treeData = [];
+  
+      component.treeStructureData = [];
+  
+      component.columns = [];
+  
+      const expandSpy = spyOn(commonService, 'expandCollapseChildren').and.callThrough();
+  
+      component.getFormattedTreeData(historicalFlightData);
+  
+      expect(expandSpy).toHaveBeenCalled();
+  
+      expect(component.isTreeLoading).toBeFalsy();
+  
+      expect(component.treeData).toEqual(treeStructureData);
+  
+      expect(component.treeStructureData).toEqual(treeStructureData);
+  
+    });*/
+  
+   
+  
+    // it('should get the tree structured data without reload', () => {
+  
+    //   component.isAutoRefreshCall = true;
+  
+    //   component.getFormattedTreeData(historicalFlightData);
+  
+    //   expect(component.rawMessageData).toEqual([]);
+  
+    // });
+  
+   
+  
+    /*it('should get getFlightID', () => {
+  
+      component.fetchLastSelectedFlights();
+  
+      component.isAutoRefreshCall = true;
+  
+      const flightIDArray = component.getFlightID([{ id: 1, name: 'AAL' }, { id: 2, name: 'JBU' }]);
+  
+      expect(flightIDArray).toEqual([1, 2]);
+  
+    });*/
+  
+   
+  
+   
+  
+    it('should format the tree table headers', () => {
+  
+      const capitalString = component.getFieldName('ICMT');
+  
+      expect(capitalString).toBe('ICMT');
+  
+      const upperString = component.getFieldName('ife');
+  
+      expect(upperString).toBe('IFE');
+  
+      const titleString = component.getFieldName('timeToDestination');
+  
+      expect(titleString).toBe('Time To Destination');
+  
+      const excludeBandwidth = component.getFieldName('bandWidth');
+  
+      expect(excludeBandwidth).toBe('Bandwidth');
+  
+      const excludeConnvm = component.getFieldName('Connvm');
+  
+      expect(excludeConnvm).toBe('ConnVM');
+  
+      const excludeHeadEnd = component.getFieldName('Head-end');
+  
+      expect(excludeHeadEnd).toBe('Head-End');
+  
+      const excludeTVService = component.getFieldName('tvServicState');
+  
+      expect(excludeTVService).toBe('TV Service State');
+  
+      const excludereportingLrus = component.getFieldName('reportingLrus');
+  
+      expect(excludereportingLrus).toBe('Reporting LRUs');
+  
+      const capitalMultiString = component.getFieldName('Iptv status');
+  
+      expect(capitalMultiString).toBe('IPTV Status');
+  
+      const excludealtitude = component.getFieldName('altitude');
+  
+      expect(excludealtitude).toBe('Altitude (in feet)');
+  
+      const excludereceived = component.getFieldName('received');
+  
+      expect(excludereceived).toBe('Received (in Mb)');
+  
+      const excludetransmitted = component.getFieldName('transmitted');
+  
+      expect(excludetransmitted).toBe('Transmitted (in Mb)');
+  
+      const excludecurrent = component.getFieldName('current');
+  
+      expect(excludecurrent).toBe('Current (in Mb)');
+  
+    });
+  
+   
+  
+    it('should switch to history view', () => {
+  
+      const gaSpy = spyOn(ga, 'gaEvent').and.callThrough();
+  
+      component.getFlightID(component.selectedFlights);
+  
+      component.setselectedFlights();
+  
+      component.flightsDataSource = { filteredData: [{ id: 1, tailNumber: 'ACA100' }, { id: 2, tailNumber: 'ACA100' }] };
+  
+   
+  
+      const selectFlights = spyOn(component, 'setselectedFlights').and.callThrough();
+  
+      const treeDataSpy = spyOn(component, 'getTreeTableData').and.callThrough();
+  
+      component.historyView = false;
+  
+      component.treeData = [];
+  
+      component.getSelectedEvent({ eventName: 'displayviewchange' });
+  
+      expect(component.historyView).toBeTruthy();
+  
+      expect(selectFlights).toBeDefined();
+  
+      expect(component.actionToolBarConfig.customActionConfig[1]['label']).toBe('Display Summary View');
+  
+      expect(component.actionToolBarConfig.customActionConfig[1]['icon']).toBe('fa-chevron-circle-left');
+  
+      expect(treeDataSpy).toHaveBeenCalledWith();
+  
+      expect(gaSpy).toHaveBeenCalledWith('User Actions', 'Display Summary View', 'Tail - Live monitoring');
+  
+    });
+  
+   
+  
+    it('should switch to normal view', () => {
+  
+      component.historyView = true;
+  
+      component.getSelectedEvent({ eventName: 'displayviewchange' });
+  
+      expect(component.historyView).toBeFalsy();
+  
+      expect(component.actionToolBarConfig.customActionConfig[1]['label']).toBe('Display Flight History');
+  
+      expect(component.actionToolBarConfig.customActionConfig[1]['icon']).toBe('fa-history');
+  
+    });
+  
+   
+  
+    it('should verify checkIsNumber', () => {
+  
+      const isNumber = component.checkIsNumber(10);
+  
+      expect(isNumber).toBeTruthy();
+  
+      const returnval = component.checkIsNumber('10');
+  
+      expect(returnval).toBeFalsy();
+  
+    });
+  
+   
+  
+   
+  
+   
+  
+    it('should verify transformData', () => {
+  
+      component.transformData(0, 'received');
+  
+      const transformedData = component.transformData(1200000, 'received');
+  
+      component.transformData(1200000, 'transmitted');
+  
+      component.transformData(1200000, 'current');
+  
+      expect(transformedData).toEqual('1 Mb');
+  
+      const faultReason = component.transformData('No aircraft data', 'faultreason');
+  
+      expect(faultReason).toEqual('No aircraft data');
+  
+      component.transformData(null, 'faultreason');
+  
+    });
+  
+   
+  
+    it('should verify getCircleClass with success', () => {
+  
+      const rowNode = {
+  
+        parent: {
+  
+          data: {
+  
+            name: 'DSU1'
+  
+          }
+  
+        }
+  
+      };
+  
+      const rowData = {
+  
+        '2021-09-20T20:20:12Z': 30
+  
+      };
+  
+      component.lruTypesResponse = {
+  
+        lruTypes: [{
+  
+          lruType: 'DSU1',
+  
+          expected: 30
+  
+        }]
+  
+      };
+  
+      const className = component.getCircleClass(rowData, '2021-09-20T20:20:12Z', rowNode);
+  
+      expect(component.getCircleClass).toBeDefined();
+  
+      expect(className).toBe('circle-success');
+  
+    });
+  
+   
+  
+    it('should verify getCircleClass with danger', () => {
+  
+      const rowNode = {
+  
+        parent: {
+  
+          data: {
+  
+            name: 'DSU1'
+  
+          }
+  
+        }
+  
+      };
+  
+      const rowData = {
+  
+        '2021-09-20T20:20:12Z': 30
+  
+      };
+  
+      component.lruTypesResponse = {
+  
+        lruTypes: [{
+  
+          lruType: 'DSU1',
+  
+          expected: 35
+  
+        }]
+  
+      };
+  
+      const className = component.getCircleClass(rowData, '2021-09-20T20:20:12Z', rowNode);
+  
+      expect(className).toBe('circle-danger');
+  
+    });
+  
+   
+  
+    it('should verify clipboardCopy', () => {
+  
+      component.clipboardCopy('AAB');
+  
+      expect(component.clipboardCopy).toBeDefined();
+  
+    });
+  
+   
+  
+    it('should verify showRawMessageModal with RawData', () => {
+  
+      const gaSpy = spyOn(ga, 'gaEvent').and.callThrough();
+  
+      component.rawMessageData = [
+  
+        {
+  
+          data: `{ \'hdr\' : { \'tailID\' : \'A7-ADS\' } }`,
+  
+          timeStamp: '2021-12-15T06:12:02.000+0000'
+  
+        }
+  
+      ];
+  
+      const setDisplayedRawMessageSpy = spyOn(component, 'setDisplayedRawMessage').and.callThrough();
+  
+      component.showRawMessageModal({ timeStamp: '2021-12-15T06:12:02Z' });
+  
+      expect(gaSpy).toHaveBeenCalledWith('User Actions', 'Display Raw Message', 'Tail - Live monitoring');
+  
+      expect(setDisplayedRawMessageSpy).toHaveBeenCalled();
+  
+    });
+  
+   
+  
+    it('should verify showRawMessageModal without RawData', () => {
+  
+      const gaSpy = spyOn(ga, 'gaEvent').and.callThrough();
+  
+      component.rawMessageData = [];
+  
+      const getRawDataSpy = spyOn(component, 'getRawData').and.callThrough();
+  
+      component.showRawMessageModal({ timeStamp: '2021-12-15T06:12:02Z' });
+  
+      expect(gaSpy).toHaveBeenCalledWith('User Actions', 'Display Raw Message', 'Tail - Live monitoring');
+  
+      expect(getRawDataSpy).toHaveBeenCalled();
+  
+    });
+  
+   
+  
+    it('should verify getRawData', () => {
+  
+      const getRawDataSpy = spyOn(liveMonitoringService, 'getRawData').and.callThrough();
+  
+      component.rawMessageData = [];
+  
+      component.getRawData({ field: '2021-12-15T06:12:02Z' });
+  
+      expect(component.getRawData).toBeDefined();
+  
+      expect(getRawDataSpy).toHaveBeenCalled();
+  
+    });
+  
+   
+  
+    it('should verify getRawData with same timestamp', () => {
+  
+      const setDisplayedRawMessageSpy = spyOn(component, 'setDisplayedRawMessage').and.callThrough();
+  
+      component.rawMessageData = [
+  
+        {
+  
+          data: JSON.stringify({
+  
+            'hdr': {
+  
+              'tailID': 'A7-ADS'
+  
+            }
+  
+          }),
+  
+          timeStamp: '2021-12-15T06:12:02.000+0000'
+  
+        }
+  
+      ];
+  
+      component.getRawData({ field: '2021-12-15T06:12:02Z' });
+  
+      expect(component.getRawData).toBeDefined();
+  
+      expect(setDisplayedRawMessageSpy).toHaveBeenCalled();
+  
+    });
+  
+   
+  
+   
+  
+   
+  
+    it('show "see post flight data" button if current flight is not selected flight', () => {
+  
+      component.userAccess.roleFieldSupport = true;
+  
+      component.currentFlightId = '1000';
+  
+      component.checkRoleAndFlight('27222');
+  
+      expect(component.actionToolBarConfig.customActionConfig[2]['hideCustomeActionButton']).toBe(!component.userAccess.roleFieldSupport);
+  
+    });
+  
+   
+  
+    it('show "see post flight data" button if current flight is equal to selected flight', () => {
+  
+      component.userAccess.roleFieldSupport = true;
+  
+      component.currentFlightId = '27222';
+  
+      component.checkRoleAndFlight('27222');
+  
+      expect(component.actionToolBarConfig.customActionConfig[2]['hideCustomeActionButton']).toBe(component.userAccess.roleFieldSupport);
+  
+    });
+  
+   
+  
+    it('show "see post flight data" button if user does not have support role', () => {
+  
+      component.userAccess.roleFieldSupport = false;
+  
+      component.currentFlightId = '1000';
+  
+      component.checkRoleAndFlight('27222');
+  
+      expect(component.actionToolBarConfig.customActionConfig[2]['hideCustomeActionButton']).toBe(!component.userAccess.roleFieldSupport);
+  
+    });
+  
+  });

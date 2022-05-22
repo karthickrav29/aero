@@ -1,0 +1,33 @@
+.circle{
+    width: 100px;
+      height:100px;
+      background: rgb(79, 183, 243);
+      border-radius: 50%;
+      margin: auto;
+      cursor: pointer;
+}
+
+.headers{
+    font-size: 30px;
+    font-weight: bolder;
+    font-style: normal;
+}
+
+.image{
+    padding: 30px;
+}
+
+.header{
+    font-size: 15px;
+    font-style: normal;
+}
+
+.highlight{
+    font-size: larger;
+    font-weight: bold;
+}
+
+.card{
+    cursor: pointer;
+    /* border:none; */
+}

@@ -1,0 +1,3638 @@
+export class TailLiveMonitoringComponent implements OnInit, OnDestroy {
+
+
+  @ViewChild('flightsModal', { static: true }) popUpContent;
+
+  @ViewChild('rawDataModal', { static: true }) rawDataModal;
+
+ 
+
+  @ViewChild('lruTypeSort') sort: MatSort;
+
+  @ViewChild('hostNameSort') hostNameSort: MatSort;
+
+  @ViewChild('otherAircraftSort') otherAircraftSort: MatSort;
+
+  @ViewChild('treeTable', { static: true }) treeTt: ElementRef;
+
+ 
+
+  constructor(
+
+    public liveMonitoringService: LiveMonitoringService,
+
+    private router: Router,
+
+    private renderer: Renderer2,
+
+    private modalService: NgbModal,
+
+    private modalConfig: NgbModalConfig,
+
+    private activeRoute: ActivatedRoute,
+
+    private tailDataService: TailsDataService,
+
+    private commonService: CommonService,
+
+    private decimalPipe: DecimalPipe,
+
+    private tailService: TailService,
+
+    private wiringService: WiringDiagramService,
+
+    private cacheService: ObservableCacheService,
+
+    private lopaDataService: LopaDataService,
+
+    private googleAnalyticsService: GoogleAnaylticService,
+
+    private timelineService: TimelineService,
+
+    private titleCasePipe: TitleCasePipe,
+
+    private userRoleAuthGuard: UserRoleAuthGuard,
+
+    private clipboard: ClipboardService
+
+  ) {
+
+    modalConfig.backdrop = 'static';
+
+    modalConfig.keyboard = false;
+
+  }
+
+ 
+
+  ngOnInit() {
+
+    this.frozenCols = [
+
+      { field: 'name', header: '' }
+
+    ];
+
+    this.resetChartData();
+
+ 
+
+    this.setselectedFlights();
+
+    this.setSelectedFlight();
+
+    // Execute every 30 seconds
+
+    this.isMapLoading = true;
+
+    this.checkUserRole();
+
+    this.setInterval = setInterval(() => {
+
+      this.isAutoRefreshCall = true;
+
+      this.refreshHandler();
+
+    }, APPKEYS.DATA_AUTO_REFRESH_DURATION);
+
+ 
+
+    /** Get route data when airline change */
+
+    this.activeRouteSubscription = this.tailDataService.getData().subscribe(data => {
+
+      if (data['tailNumber']) {
+
+        this.lruTypeConfig.tailNumber = data['tailNumber'];
+
+        this.flightQuery = '';
+
+        this.getHistoryFlights();
+
+        if (!this.historyView) {
+
+          this.isLoading = true;
+
+          this.headendHostnameList = [];
+
+          this.isMapLoading = true;
+
+          this.cabinStatus = [];
+
+          this.cabinClassStatusConfig.cabinClassStatus = [];
+
+          this.resetDatasource();
+
+          this.getTailsData();
+
+        } else {
+
+          this.columns = [];
+
+          this.treeStructureData = [];
+
+          this.isAutoRefreshCall = false;
+
+          this.resetDatasource();
+
+          this.getTailsData();
+
+          if (!this.isMultipleFlightSelect) {
+
+            this.getTreeTableData();
+
+          } else {
+
+            this.isTreeLoading = false;
+
+            this.isAutoRefreshCall = false;
+
+          }
+
+        }
+
+        this.checkRoleAndFlight();
+
+ 
+
+        if (this.isNavigate) {
+
+          this.router.navigate(['airlines', this.lruTypeConfig.icao, 'tails', this.lruTypeConfig.tailNumber, 'live-monitoring']);
+
+        }
+
+ 
+
+      }
+
+    });
+
+    /** Get route data when route change */
+
+    /* istanbul ignore else*/
+
+    if (this.activeRoute.parent) {
+
+      this.routeSubscribtion = this.activeRoute.parent.params.subscribe(params => {
+
+        /* istanbul ignore else*/
+
+        if (params['tailNumber']) {
+
+          this.headendHostnameList = [];
+
+          this.lruTypeConfig.icao = params['airlineIcao'].toUpperCase();
+
+          this.lruTypeConfig.tailNumber = params['tailNumber'];
+
+        }
+
+      });
+
+    }
+
+ 
+
+ 
+
+    if (this.activeRoute.snapshot.queryParams['flights']) {
+
+      this.activeRoute.queryParams.subscribe(params => {
+
+        const selectFlightId = params['flights'] || null;
+
+        if (selectFlightId != null) {
+
+          this.selectedFlights = Array.from(selectFlightId.split(','), Number);
+
+          this.selectedFlights = this.selectedFlights.slice(0, this.selectedFlights.length);
+
+          this.getPreviousFlightsData();
+
+        }
+
+      });
+
+    }
+
+ 
+
+    this.getHistoryFlights();
+
+ 
+
+    if (!this.historyView) {
+
+      this.resetDatasource();
+
+      this.getTailsData();
+
+      this.getLopaData();
+
+    }
+
+  }
+
+ 
+
+  async checkUserRole() {
+
+    this.userAccess = await this.userRoleAuthGuard.getUserRoleAccess();
+
+    this.actionToolBarConfig.customActionConfig[0].hideCustomeActionButton = !this.userAccess.roleFieldSupport;
+
+    this.actionToolBarConfig.customActionConfig[1].hideCustomeActionButton = !this.userAccess.roleFieldSupport;
+
+  }
+
+ 
+
+  refreshHandler(flightType?) {
+
+    console.log('this.selectedFlights', this.selectedFlights);
+
+    console.log('this.isMultipleFlightSelect', this.isMultipleFlightSelect);
+
+    console.log('this.currentFlightId', this.currentFlightId);
+
+    console.log('this.selectedFlights[0]', this.selectedFlights[0]);
+
+    if (this.isMultipleFlightSelect === true || this.currentFlightId !== this.selectedFlights[0]) {
+
+      this.activeUserskpiCardObj.isLoading = false;
+
+      this.isTreeLoading = false;
+
+    } else {
+
+      this.setSelectedFlight();
+
+      if (!this.historyView) {
+
+        this.getTailsData();
+
+ 
+
+        this.isMapRefreshed = !this.isMapRefreshed;
+
+        this.isMapRefreshed = Object.assign({}, this.isMapRefreshed);
+
+      } else {
+
+ 
+
+        if (flightType === 'previousFlight') {
+
+          if (this.isMultipleFlightSelect === false) {
+
+            this.getTreeTableData(flightType);
+
+            this.isTreeLoading = true;
+
+          } else {
+
+            this.isTreeLoading = false;
+
+          }
+
+ 
+
+        } else {
+
+          if (this.isMultipleFlightSelect === false) {
+
+            this.getTreeTableResponse();
+
+            this.isTreeLoading = true;
+
+          } else {
+
+            this.isTreeLoading = false;
+
+          }
+
+ 
+
+        }
+
+      }
+
+ 
+
+    }
+
+  }
+
+ 
+
+  checkRoleAndFlight(flightId?: string) {
+
+    this.actionToolBarConfig.customActionConfig[2].hideCustomeActionButton =
+
+      !(flightId && flightId !== this.currentFlightId && this.userAccess.roleFieldSupport);
+
+  }
+
+ 
+
+  getHistoryFlights() {
+
+    this.isFlightsLoading = true;
+
+   this.liveMonitoringService.getTailsDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber,
+
+      'flights?startIndex=1&limit=99').subscribe(res => {
+
+        /* istanbul ignore else*/
+
+        if (!res['error'] && res.length) {
+
+          this.isFlightsLoading = false;
+
+          this.flightsDataSource = new MatTableDataSource([]);
+
+          this.flightsDisplayedColumns = ['select', 'flightNumber'];
+
+          this.flightsIndex = 0;
+
+          this.flightsList = res;
+
+          this.currentFlightId = res[0].id;
+
+          this.duumyflightID = res[0].id;
+
+          this.selectedFlightId = this.currentFlightId;
+
+ 
+
+          this.getFlightsForModal();
+
+        }
+
+      });
+
+  }
+
+ 
+
+  getFlightsForModal() {
+
+    const filteredDataSource = [];
+
+    const flightIndex = this.flightsIndex;
+
+    let flightsSourceData = [];
+
+    if (this.flightsDataSource && this.flightsDataSource.data) {
+
+      flightsSourceData = [...this.flightsDataSource.data];
+
+    }
+
+    for (let i = flightIndex; i < flightIndex + 10 && flightIndex <= this.flightsList.length - 1; i++) {
+
+      filteredDataSource.push(this.flightsList[i]);
+
+      this.flightsIndex++;
+
+    }
+
+    this.flightsDataSource = new MatTableDataSource([...flightsSourceData, ...filteredDataSource]);
+
+  }
+
+  setselectedFlights() {
+
+    this.isMultipleFlightSelect = false;
+
+    if (this.selection.selected != null && this.selection.selected.length > 0) {
+
+      this.selectedFlights = [];
+
+      this.selectedFlights = this.getFlightID(this.selection.selected);
+
+    }
+
+    this.flights = '';
+
+    let count = 0;
+
+    if (this.selectedFlights.length >= 1) {
+
+      for (let index = 0; index < this.selectedFlights.length; index++) {
+
+        if (this.selectedFlights[index] !== undefined) {
+
+          if (this.selectedFlights[index] !== 'undefined' && this.selectedFlights[index] !== 'NaN'
+
+            && this.selectedFlights[index] !== null) {
+
+            count++;
+
+            this.flights = this.flights.concat(String(this.selectedFlights[index]) + ',');
+
+          }
+
+        }
+
+      }
+
+    }
+
+    if (count > 1) {
+
+      this.isMultipleFlightSelect = true;
+
+    } else {
+
+      this.isMultipleFlightSelect = false;
+
+    }
+
+ 
+
+    localStorage.setItem('selectedFlights', JSON.stringify(this.selectedFlights));
+
+  }
+
+  setSelectedFlight() {
+
+    this.isMultipleFlightSelect = false;
+
+    if (localStorage.getItem('selectedFlights')) {
+
+      this.selectedFlight = JSON.parse(localStorage.getItem('selectedFlights'));
+
+    }
+
+    if (this.flightsDataSource.filteredData !== 'undefined' && this.flightsDataSource.filteredData != null
+
+      && this.flightsDataSource.filteredData.length != null) {
+
+      if (this.flightsDataSource.filteredData.length > 0) {
+
+        for (let index = 0; index < this.flightsDataSource.filteredData.length; index++) {
+
+          if (this.selectedFlight.includes(this.flightsDataSource.filteredData[index].id)) {
+
+ 
+
+            this.selection.select(this.flightsDataSource.filteredData[index]);
+
+          }
+
+        }
+
+        if (this.selection.selected.length > 1) {
+
+          this.isMultipleFlightSelect = true;
+
+        } else {
+
+          this.isMultipleFlightSelect = false;
+
+        }
+
+      }
+
+    }
+
+  }
+
+  getPreviousFlightsData() {
+
+    this.resetChartData();
+
+    this.isMultipleFlightSelect = false;
+
+    this.setselectedFlights();
+
+   this.setSelectedFlight();
+
+ 
+
+    this.router.navigate(['airlines', this.lruTypeConfig.icao, 'tails', this.lruTypeConfig.tailNumber, 'live-monitoring'], { queryParams: { 'flights': this.flights.slice(0, this.flights.length - 1) } });
+
+ 
+
+    this.callFlightInfoAPi(this.selectedFlights);
+
+    const flightId = this.selectedFlights[0];
+
+    this.flightQuery = '';
+
+    this.selectedFlightId = flightId;
+
+    this.isMapLoading = true;
+
+    /* istanbul ignore else*/
+
+    if (this.selectFlightModal) {
+
+      this.selectFlightModal.close();
+
+    }
+
+    if (this.historyView) {
+
+      this.columns = [];
+
+      this.treeStructureData = [];
+
+      this.isAutoRefreshCall = false;
+
+      if (this.selectedFlights.length > 1) {
+
+        this.isMultipleFlightSelect = true;
+
+      } else {
+
+        this.flightQuery = this.selectedFlights[0] ? `?flightId=${this.selectedFlights[0]}` : '';
+
+        if (this.selectedFlightId === this.flightsDataSource.filteredData[0].id) {
+
+          this.currentFlightId = this.selectedFlights[0];
+
+        }
+
+        this.isMultipleFlightSelect = false;
+
+        this.getTreeTableData();
+
+      }
+
+ 
+
+    } else {
+
+      if (this.selectedFlightId === this.flightsDataSource.filteredData[0].id) {
+
+        this.currentFlightId = this.selectedFlights[0];
+
+      }
+
+      this.getTailsData();
+
+    }
+
+    clearInterval(this.setInterval);
+
+    if (flightId && flightId !== '') {
+
+      this.flightQuery = flightId !== this.currentFlightId ? `?flightId=${flightId}` : '';
+
+    }
+
+    this.checkRoleAndFlight(flightId);
+
+    this.refreshHandler('previousFlight');
+
+    if (flightId === this.currentFlightId) {
+
+      this.setInterval = setInterval(() => {
+
+        this.isAutoRefreshCall = true;
+
+        this.refreshHandler();
+
+      }, APPKEYS.DATA_AUTO_REFRESH_DURATION);
+
+    } else {
+
+      this.isAutoRefreshCall = false;
+
+    }
+
+  }
+
+  getTreeTableData(flightType?) {
+
+    this.treeData = [];
+
+    this.getTreeTableResponse(flightType);
+
+  }
+
+  getTreeTableResponse(flightType?) {
+
+    this.isTreeLoading = !this.isAutoRefreshCall;
+
+    this.updatedTime = new Date();
+
+    this.liveMonitoringService.getTailsDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber,
+
+      `history${this.flightQuery}`).subscribe(res => {
+
+        /* istanbul ignore else*/
+
+        if (flightType && flightType === 'previousFlight') {
+
+          this.columns = [];
+
+          this.treeStructureData = [];
+
+        }
+
+        if (!res['error'] && res.length) {
+
+          this.getFormattedTreeData(res);
+
+        } else {
+
+          this.isTreeLoading = false;
+
+        }
+
+      });
+
+  }
+
+  getFormattedTreeData(historyData) {
+
+    historyData.forEach(history => {
+
+      if (this.userAccess.roleFieldSupport) {
+
+        history = Object.assign({ rawDataMessage: {} }, history);
+
+      }
+
+      if (!this.columns.length) {
+
+        this.columns.push({ field: 'name', header: '' });
+
+      }
+
+      const timeStamp = moment(history.timestamp).utc().format();
+
+      const isTimestampExist = this.columns.findIndex(col => col.field === timeStamp);
+
+      if (isTimestampExist < 0) {
+
+        if (!this.isAutoRefreshCall) {
+
+          this.columns.splice(1, 0, { field: timeStamp, header: timeStamp });
+
+        } else {
+
+          this.columns.push({ field: timeStamp, header: timeStamp });
+
+        }
+
+        let index = 0;
+
+        for (const key in history) {
+
+          if (history.hasOwnProperty(key) && key !== 'timestamp') {
+
+            let historyObj = {
+
+              data: {}
+
+            };
+
+            if (this.treeData[index]) {
+
+              historyObj = this.treeData[index];
+
+            }
+
+            if (key === 'usageMetrics' && !Object.keys(history[key]).length) {
+
+              index++;
+
+              break;
+
+            }
+
+            historyObj['data'][timeStamp] = typeof history[key] !== 'object' ? history[key] : '';
+
+            if (!historyObj['data']['name']) {
+
+              historyObj['data']['name'] = key;
+
+            }
+
+            if (history[key] && typeof history[key] === 'object' && Object.keys(history[key]).length) {
+
+              if (!this.treeData[index]) {
+
+                historyObj['children'] = [];
+
+              }
+
+              this.treeDataCons(history[key], timeStamp, historyObj);
+
+            }
+
+            if (this.treeData.length <= index) {
+
+              this.treeData.push(historyObj);
+
+            }
+
+            index++;
+
+          }
+
+        }
+
+      }
+
+    });
+
+    this.isTreeLoading = false;
+
+    if (!this.isAutoRefreshCall) {
+
+      this.historyTreeTableExpandCollapse(true, 'initialState');
+
+    }
+
+  }
+
+ 
+
+  treeDataCons(dataArr, timeStamp, historyObj) {
+
+    let innerIndex = 0;
+
+    for (const innerKey in dataArr) {
+
+      /* istanbul ignore else*/
+
+      if (innerKey) {
+
+        let innerData = {
+
+          data: {}
+
+        };
+
+        if (historyObj['children'] && historyObj['children'][innerIndex]) {
+
+          innerData = historyObj['children'][innerIndex];
+
+        }
+
+        innerData['data'][timeStamp] = typeof dataArr[innerKey] !== 'object' ? dataArr[innerKey] : '';
+
+        innerData['data']['name'] = innerKey;
+
+        if (dataArr[innerKey] && typeof dataArr[innerKey] === 'object' && Object.keys(dataArr[innerKey]).length) {
+
+          if (historyObj['children'] && !historyObj['children'][innerIndex]) {
+
+            innerData['children'] = [];
+
+          }
+
+          this.treeDataCons(dataArr[innerKey], timeStamp, innerData);
+
+        }
+
+        if (historyObj['children'] && (historyObj['children'].length <= innerIndex)) {
+
+          historyObj['children'].push(innerData);
+
+        }
+
+        innerIndex++;
+
+      }
+
+    }
+
+  }
+
+ 
+
+  historyTreeTableExpandCollapse(tableOption, action?) {
+
+    this.isTreeExpand = tableOption;
+
+    if (!action || action !== 'initialState') {
+
+      this.googleAnalyticsService.gaEvent('User Actions', `History View ${tableOption ? 'Expand' : 'Collapse'} All`, 'Tail - Live monitoring');
+
+    }
+
+   this.treeData = this.commonService.exapandCollapseNodes(this.treeData, tableOption);
+
+    this.treeStructureData = [...this.treeData];
+
+    if (!this.isTest) {
+
+      document.getElementsByClassName('ui-treetable-scrollable-header-table')[1].setAttribute('style', 'margin-left: -185px');
+
+      document.getElementsByClassName('ui-treetable-thead')[1].setAttribute('style', 'margin-left: -185px');
+
+    }
+
+    this.assignFaultHeight();
+
+  }
+
+ 
+
+  assignFaultHeight() {
+
+    setTimeout(() => {
+
+      const colFaultReason = document.getElementsByClassName('col-faultReason');
+
+      if (colFaultReason) {
+
+        Array.prototype.forEach.call(colFaultReason, (el, index) => {
+
+          document.getElementsByClassName('froz-faultReason')[index].setAttribute('style', `height:${el.clientHeight}px`);
+
+        });
+
+      }
+
+    });
+
+  }
+
+ 
+
+  filterHistoryTable(filterValue: string) {
+
+    this.filterValue = filterValue.trim().toLowerCase().replace(/ /g, '');
+
+    this.treeTt['filterGlobal'](this.filterValue, 'contains');
+
+    if (filterValue.length) {
+
+      Observable.of(this.treeTt).pipe(delay(300)).subscribe(() => {
+
+        this.isNullFilter = !(this.treeTt['filteredNodes'] && this.treeTt['filteredNodes'].length);
+
+      });
+
+    } else {
+
+      this.isNullFilter = false;
+
+    }
+
+  }
+
+ 
+
+  getFieldName(fieldName) {
+
+    let string = '';
+
+    const excludeArry = ['bandWidth', 'Connvm', 'Head-end', 'reportingLrus', 'tvServicState', 'Pa mute', 'altitude', 'received', 'transmitted', 'current'];
+
+    if (excludeArry.indexOf(fieldName) === -1) {
+
+      if (fieldName === fieldName.toUpperCase()) {
+
+        string = fieldName;
+
+      } else if (fieldName.length <= 4) {
+
+        string = fieldName.toUpperCase();
+
+      } else {
+
+        let text = '';
+
+        const capitalTexts = ['lru', 'tv', 'Iptv'];
+
+        const strArr = fieldName.split(/(?=[A-Z])/);
+
+       if (strArr.length === 1) {
+
+          capitalTexts.forEach(capStr => {
+
+            string = this.titleCasePipe.transform(strArr[0]);
+
+            if (strArr[0].indexOf(capStr) > -1) {
+
+              string = string.replace(capStr, capStr.toUpperCase());
+
+            }
+
+          });
+
+        } else {
+
+          strArr.forEach(str => {
+
+            text += capitalTexts.includes(str.toLowerCase()) ? str.toUpperCase() : ` ${this.titleCasePipe.transform(str)}`;
+
+          });
+
+          string = text.trim();
+
+        }
+
+      }
+
+    } else {
+
+      string = fieldName === 'bandWidth' ? 'Bandwidth' : fieldName === 'Connvm' ? 'ConnVM' : fieldName === 'reportingLrus' ? 'Reporting LRUs' :
+
+        fieldName === 'tvServicState' ? 'TV Service State' : fieldName === 'Pa mute' ? 'PA Mute' : fieldName === 'altitude' ? 'Altitude (in feet)' : fieldName === 'received' ? 'Received (in Mb)' : fieldName === 'transmitted' ? 'Transmitted (in Mb)' : fieldName === 'current' ? 'Current (in Mb)' : 'Head-End';
+
+    }
+
+    return string;
+
+  }
+
+ 
+
+  getRawData(flight) {
+
+    this.displayedRawMessage = {
+
+      timeStamp: flight.field,
+
+      data: null
+
+    };
+
+    let isApiCallReq = true;
+
+    if (this.rawMessageData.length) {
+
+      for (let i = 0; i < this.rawMessageData.length; i++) {
+
+        if (moment(this.rawMessageData[i].timeStamp).utc().format() === flight.field) {
+
+          this.setDisplayedRawMessage(this.rawMessageData[i]);
+
+          isApiCallReq = false;
+
+          break;
+
+        }
+
+      }
+
+    }
+
+    if (isApiCallReq) {
+
+      this.liveMonitoringService.getRawData(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber, flight.field).subscribe(resp => {
+
+        if (resp.length) {
+
+          this.rawMessageData.push(resp[0]);
+
+          this.setDisplayedRawMessage(resp[0]);
+
+        } else {
+
+          this.isRawApiLoading = false;
+
+        }
+
+      });
+
+    }
+
+  }
+
+ 
+
+  setDisplayedRawMessage(data: any) {
+
+    const rawMsg = Object.assign({}, data);
+
+    this.displayedRawMessage = rawMsg;
+
+    this.displayedRawMessage.data = JSON.parse(this.displayedRawMessage.data);
+
+    this.isRawApiLoading = false;
+
+  }
+
+ 
+
+  getCircleClass(rowData, colName, rowNode) {
+
+    const lruName = rowNode.parent.data.name;
+
+    const lruDataIndex = this.lruTypesResponse['lruTypes']?.findIndex(lruData => lruData.lruType === lruName);
+
+    let className = '';
+
+    if (lruDataIndex > -1) {
+
+      const lrutypeData = this.lruTypesResponse['lruTypes'][lruDataIndex];
+
+      className = lrutypeData?.expected === rowData[colName] ? 'circle-success' : 'circle-danger';
+
+    }
+
+    return className;
+
+  }
+
+ 
+
+  /**
+
+   * Clear lru type and hostname datasource
+
+   */
+
+  resetDatasource() {
+
+    this.lruTypeConfig.isLruTypeLoading = true;
+
+    this.hostNameConfig.isHostnameLoading = true;
+
+    this.isTVStatusLoading = true;
+
+    this.connectivityData.isLoading = true;
+
+    this.dataSource.data = [];
+
+    this.hostNameConfig.hostnameDataSource.data = [];
+
+  }
+
+ 
+
+  /**
+
+   * Get lru types and hostname data
+
+   */
+
+  getTailsData() {
+
+    this.isLoading = true;
+
+    if (this.isMultipleFlightSelect === true || this.currentFlightId !== this.selectedFlights[0]) {
+
+      this.activeUserskpiCardObj.isLoading = false
+
+    } else {
+
+      this.activeUserskpiCardObj.isLoading = true;
+
+    }
+
+    this.updatedTime = new Date();
+
+    // Get Flight Info
+
+    this.liveMonitoringService.getTailsDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber,
+
+      `flight-info${this.flightQuery}`)
+
+      .subscribe((flightInfo: any) => {
+
+        this.isIfeLiveMonitoring = flightInfo.isIfeLiveMonitoring;
+
+        this.isSesConnectivityLiveMonitoring = flightInfo.isSesConnectivityLiveMonitoring;
+
+        this.isFisRegistration = flightInfo.isFisRegistration;
+
+        this.isIpTv = flightInfo.isIpTv;
+
+        this.connectivityPlatform = flightInfo.connectivityPlatform;
+
+        this.isDisplaysTV = flightInfo?.tvPlatform !== null;
+
+        this.selection = new SelectionModel(true, [0]);
+
+        this.getFlightDetails(flightInfo);
+
+        this.getFligthInfoDetails(flightInfo);
+
+        this.isLoading = false;
+
+        this.isMapLoading = false;
+
+        this.activeUserskpiCardObj.isLoading = false;
+
+      });
+
+ 
+
+  }
+
+  getFlightDetails(flightInfo) {
+
+    if (this.isIfeLiveMonitoring) {
+
+      // Get LRU Type Defials
+
+      const lruTypes$ = this.liveMonitoringService.getTailsDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber,
+
+        `lru-types${this.flightQuery}`)
+
+        .map((res: any) => {
+
+          return res;
+
+        })
+
+       .catch((error: any) => {
+
+          return Observable.of(error);
+
+        });
+
+      // Get Hostname Defials
+
+      const hostname$ = this.liveMonitoringService.getTailsDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber,
+
+        `hostnames${this.flightQuery}`)
+
+        .map((res: any) => {
+
+          this.cabinClassStatusConfig.hostNames = res;
+
+          return res;
+
+        }).catch((error: any) => {
+
+          return Observable.of(error);
+
+        });
+
+ 
+
+      // Get Streaming Session
+
+      const streamingSessions$ = this.liveMonitoringService.getTailsDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber,
+
+        `streaming-sessions${this.flightQuery}`)
+
+        .map((res: any) => {
+
+          return res;
+
+        }).catch((error: any) => {
+
+          return Observable.of(error);
+
+        });
+
+ 
+
+      combineLatest([lruTypes$, hostname$, streamingSessions$]).subscribe(
+
+        ([lruTypes, hostname, streamingSessions]) => {
+
+          this.combineApiResp(lruTypes, hostname, streamingSessions);
+
+        });
+
+ 
+
+    }
+
+    if (this.isSesConnectivityLiveMonitoring) {
+
+      // Get connectivity  details
+
+      this.liveMonitoringService.getTailsDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber,
+
+        `connectivity${this.flightQuery}`)
+
+        .subscribe((connectivityDetails: any) => {
+
+          this.getConnectivityDetails(connectivityDetails);
+
+        });
+
+      this.getSatelliteInformation(flightInfo.sesSatelliteData);
+
+    } else {
+
+      this.cabinClassStatusConfig.cabinClassStatus = this.cabinStatus;
+
+      this.cabinClassStatusConfig.isConfigLoading = false;
+
+    }
+
+  }
+
+  combineApiResp(lruTypes, hostname, streamingSessions) {
+
+    if (lruTypes && !lruTypes.error) {
+
+      this.lruTypesResponse = lruTypes;
+
+      const lruTypesData = this.getLruTypesData(lruTypes?.lruTypes ? lruTypes?.lruTypes : []);
+
+      const otherAircraftEquipmentsData = this.getLruTypesData(lruTypes?.otherAircraftEquipments ?
+
+        lruTypes?.otherAircraftEquipments : []);
+
+      /* lruTypes */
+
+      this.dataSource = new MatTableDataSource(lruTypesData);
+
+      this.dataSource.sort = this.sort;
+
+      /* SAC */
+
+      /* istanbul ignore else*/
+
+      if (otherAircraftEquipmentsData.length) {
+
+        this.otherLruTypeConfig.otherLruTypeDataSoruce = new MatTableDataSource(otherAircraftEquipmentsData);
+
+        this.otherLruTypeConfig.otherLruTypeDataSoruce.sort = this.otherAircraftSort;
+
+      }
+
+ 
+
+      this.lruTypeConfig.isLruTypeLoading = false;
+
+    } else {
+
+      this.commonService.navigateToNotFoundAccessDenied(lruTypes.error);
+
+      this.lruTypeConfig.isLruTypeLoading = false;
+
+      this.dataSource = new MatTableDataSource([]);
+
+    }
+
+ 
+
+    if (hostname && !hostname.error) {
+
+      this.hostNameConfig.hostnameDataSource = new MatTableDataSource(hostname);
+
+      this.hostNameConfig.hostnameDataSource.sort = this.hostNameSort;
+
+      this.hostNameConfig.isHostnameLoading = false;
+
+      this.lopaData = [];
+
+      this.lopaDataList = [];
+
+      hostname.forEach(data => {
+
+        // Here for Lopa data
+
+        /* istanbul ignore else*/
+
+        if (data && data.hostname
+
+          && (data.hostname.slice(0, 4).toLowerCase() === 'svdu'
+
+            || data.hostname.slice(0, 4).toLowerCase() === 'tpmu')) {
+
+          this.lopaDataList.push(data);
+
+        }
+
+ 
+
+        // Here for HeadEnd Count data
+
+        const itemset = this.hostnameList.findIndex(item => item.hostname === data.hostname);
+
+        if (itemset > -1) {
+
+          this.hostnameList[itemset].count = data.commandedResets + data.uncommandedResets + data.failures;
+
+          this.hostnameList[itemset].colorClass = this.tailService.getLiveMonitoringCircleClass(this.hostnameList[itemset].count);
+
+          this.hostnameList[itemset].tooltipData = {
+
+            hostname: data.hostname,
+
+            commandedResets: data.commandedResets,
+
+            uncommandedResets: data.uncommandedResets,
+
+            failures: data.failures,
+
+            commandedResetsColorClass: this.tailService.getLiveMonitoringCircleClass(data.commandedResets),
+
+            uncommandedResetsColorClass: this.tailService.getLiveMonitoringCircleClass(data.uncommandedResets),
+
+            failuresColorClass: this.tailService.getLiveMonitoringCircleClass(data.failures)
+
+          };
+
+        }
+
+      });
+
+      // Configuring lopa with lopa values
+
+      /* istanbul ignore else*/
+
+      if (this.lopaDataList.length) {
+
+        const grouppedLopaData = this.commonService.formatLopaHostnames(this.lopaDataList);
+
+        const lopaData = [];
+
+        for (const key in grouppedLopaData) {
+
+          /* istanbul ignore else*/
+
+          if (grouppedLopaData.hasOwnProperty(key)) {
+
+            const indx = lopaData.findIndex(itm => itm.name === key.slice(4, key.length));
+
+            const keyName = key.slice(0, 4);
+
+            if (indx !== -1) {
+
+              lopaData[indx][keyName] = {
+
+                ['totalCount']:
+
+                  grouppedLopaData[key][0]['commandedResets'] + grouppedLopaData[key][0]['uncommandedResets'] +
+
+                  grouppedLopaData[key][0]['failures'],
+
+                ['commandedResets']: grouppedLopaData[key][0]['commandedResets'],
+
+                ['uncommandedResets']: grouppedLopaData[key][0]['uncommandedResets'],
+
+                ['failures']: grouppedLopaData[key][0]['failures']
+
+              };
+
+ 
+
+            } else {
+
+              const itemObj = {
+
+                name: key.slice(4, key.length),
+
+                [keyName]: {
+
+                  ['totalCount']:
+
+                    grouppedLopaData[key][0]['commandedResets'] + grouppedLopaData[key][0]['uncommandedResets'] +
+
+                    grouppedLopaData[key][0]['failures'],
+
+                  ['commandedResets']: grouppedLopaData[key][0]['commandedResets'],
+
+                  ['uncommandedResets']: grouppedLopaData[key][0]['uncommandedResets'],
+
+                  ['failures']: grouppedLopaData[key][0]['failures']
+
+                }
+
+              };
+
+              lopaData.push(itemObj);
+
+            }
+
+          }
+
+        }
+
+        this.formattedLopaData = lopaData;
+
+      }
+
+      this.reInitializeLopaData();
+
+ 
+
+    } else {
+
+      this.commonService.navigateToNotFoundAccessDenied(hostname.error);
+
+      this.hostNameConfig.hostnameDataSource = new MatTableDataSource([]);
+
+      this.hostNameConfig.isHostnameLoading = false;
+
+    }
+
+    // Streaming Session
+
+    /* istanbul ignore else*/
+
+    if (streamingSessions && streamingSessions.length > 0 && !streamingSessions.error) {
+
+      streamingSessions = this.commonService.sortAlphaNumbericOrderByField(streamingSessions, 'server');
+
+      const streamingData: any = [];
+
+      streamingSessions.forEach((element) => {
+
+        let circleColor = '';
+
+        /* istanbul ignore else*/
+
+        if (element.currentStreamingSessions === 0) {
+
+          circleColor = element.maximumStreamingSessions === 0 ? 'circle-danger' : 'circle-warning';
+
+        } else if (element.currentStreamingSessions > 0) {
+
+          circleColor = 'circle-success';
+
+        }
+
+        streamingData.push({
+
+          hostname: element.server,
+
+          count: `<strong>${element.currentStreamingSessions}</strong> / ${element.maximumStreamingSessions}`,
+
+          colorClass: circleColor
+
+        });
+
+      });
+
+      this.headendHostnameList = streamingData;
+
+    }
+
+  }
+
+ 
+
+  switchHostnameView(selectedView) {
+
+    /* istanbul ignore else*/
+
+    if (this.hostnameView !== selectedView) {
+
+      const gaEvent = {
+
+        category: 'User actions',
+
+        action: null,
+
+        label: 'Tail - Live monitoring'
+
+      };
+
+      gaEvent.action = selectedView === 'grid' ? 'Display hostnames as LOPA' : 'Display hostnames in list';
+
+      this.googleAnalyticsService.gaEvent(gaEvent.category, gaEvent.action, gaEvent.label);
+
+      this.hostnameView = selectedView;
+
+    }
+
+  }
+
+ 
+
+  lopaServerChange(server) {
+
+    this.selectedServer = server;
+
+    this.reInitializeLopaData();
+
+  }
+
+ 
+
+  reInitializeLopaData() {
+
+    const lopaInfo = {
+
+      lopaData: this.formattedLopaData,
+
+      selectedServer: this.selectedServer,
+
+      networkData: this.networkDetails,
+
+      serversConnectedInFlight: this.serversConnectedInFlight,
+
+    };
+
+    this.lopaData = this.lopaDataService.getTooltipData(lopaInfo, '', false, 'liveMonitoring');
+
+  }
+
+  /**
+
+* Fetch lopa data using route params
+
+* Calls @method getLopaDetails() to get lopa information
+
+* @arguments airlineIcao @arguments tailNumber
+
+*/
+
+  getLopaData() {
+
+    this.isLopaDataError = false;
+
+    /* istanbul ignore else*/
+
+    if (!Object.keys(this.lopaConfig.deckConfig).length) {
+
+      // Called through cache service to avoid the multiple calls
+
+      this.cacheService.get(`lopa-details-${this.lruTypeConfig.icao}-${this.lruTypeConfig.tailNumber}`,
+
+        this.tailService.getLopaDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber)).subscribe(data => {
+
+          /* istanbul ignore else*/
+
+          if (Object.entries(data).length > 0 && !data.hasOwnProperty('error')) {
+
+            this.lopaConfig = data;
+
+            this.serversConnectedInFlight =
+
+              data.headEnd.filter(server => server.substring(0, 3) === 'DSU' && server !== this.connectivityDSU);
+
+            this.getNetworkDetails();
+
+            this.hostnameList = this.commonService.getHeadendList(data);
+
+ 
+
+          } else {
+
+            this.isLopaDataError = true;
+
+          }
+
+        }, error => {
+
+          this.isLopaDataError = true;
+
+        });
+
+    }
+
+  }
+
+ 
+
+  navigateToRoute(hostname) {
+
+    localStorage.removeItem('seatDetailsRouteData');
+
+    this.router.navigate(['/airlines', this.lruTypeConfig.icao, 'tails',
+
+      this.lruTypeConfig.tailNumber, 'live-monitoring', 'hostname', hostname]);
+
+  }
+
+ 
+
+  getSeatNumber(seatNumber, type) {
+
+    localStorage.removeItem('seatDetailsRouteData');
+
+    localStorage.setItem('seatDetailsRouteData', type + '-' + seatNumber);
+
+    this.seatRoute =
+
+      ['/airlines', this.lruTypeConfig.icao, 'tails', this.lruTypeConfig.tailNumber, 'live-monitoring', 'seats', seatNumber];
+
+    this.router.navigate(this.seatRoute);
+
+  }
+
+ 
+
+  getLruTypesData(lruTypes) {
+
+    const lrutypesData: any = [];
+
+    lruTypes.forEach((element) => {
+
+      const isExpectedValueValid = this.checkValidValues(element.expected);
+
+      const expectedValueForContentDownload = this.checkLruTypeWithAirline(element.lruType, element.expected);
+
+      isExpectedValueValid ?
+
+        lrutypesData.push({
+
+          softwareFaults: this.checkValidValues(element.softwareFaults) ? `${element.softwareFaults} / ${element.expected}` : null,
+
+          networkFaults: this.checkValidValues(element.networkFaults) ? `${element.networkFaults} / ${element.expected}` : null,
+
+          contentDownloadComplete: element.lruType.includes('ICMT') || element.lruType.includes('LAIC') ? 'N/A' :
+
+            this.checkValidValues(element.contentDownloadComplete) ?
+
+              `${element.contentDownloadComplete} / ${expectedValueForContentDownload}` : null,
+
+          softwareDownloaded: this.checkValidValues(element.softwareDownloaded) ?
+
+            `${element.softwareDownloaded} / ${element.expected}` : null,
+
+          reporting: this.checkValidValues(element.reporting) ? `${element.reporting} / ${element.expected}` : null,
+
+          lruType: element.lruType,
+
+          failures: element.failures,
+
+          resets: element.resets,
+
+          softwareFaultsClass: element.softwareFaults === 0 ? 'circle circle-success' : 'circle circle-danger',
+
+          networkFaultsClass: element.networkFaults === 0 ? 'circle circle-success' : 'circle circle-danger',
+
+          contentDownloadCompleteClass: element.lruType.includes('ICMT') || element.lruType.includes('LAIC') ? '' :
+
+            element.contentDownloadComplete === expectedValueForContentDownload ? 'circle circle-success' : 'circle circle-danger',
+
+          softwareDownloadedClass: element.softwareDownloaded === element.expected ? 'circle circle-success' : 'circle circle-danger',
+
+          reportingClass: element.reporting === element.expected ? 'circle circle-success' : 'circle circle-danger'
+
+        }) : lrutypesData.push({
+
+          softwareFaults: null,
+
+          networkFaults: null,
+
+          contentDownloadComplete: null,
+
+          softwareDownloaded: null,
+
+          reporting: null,
+
+          lruType: element.lruType,
+
+          failures: element.failures,
+
+          resets: element.resets,
+
+          softwareFaultsClass: '',
+
+          networkFaultsClass: '',
+
+          contentDownloadCompleteClass: '',
+
+          softwareDownloadedClass: '',
+
+          reportingClass: ''
+
+        });
+
+    });
+
+    return lrutypesData;
+
+  }
+
+ 
+
+  checkValidValues(value) {
+
+    if ((value || value === 0) && value !== '-' &&
+
+      value !== 'null' && value !== 'undefined') {
+
+      return true;
+
+    } else {
+
+      return false;
+
+    }
+
+  }
+
+ 
+
+  getNetworkDetails() {
+
+    const servers = ['primaryServer', 'secondaryServer'];
+
+ 
+
+    this.wiringService.getWiringDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber, 'tooltip', servers)
+
+      .subscribe(res => {
+
+        this.networkDetails = res;
+
+      });
+
+  }
+
+ 
+
+  getFligthInfoDetails(flightDetails) {
+
+    this.cabinStatus = [];
+
+    if (this.cabinClassStatusConfig && flightDetails.cabinStatus) {
+
+      this.cabinStatus = flightDetails.cabinStatus;
+
+    }
+
+    // TV Status
+
+    if (this.cabinClassStatusConfig && this.isDisplaysTV) {
+
+      const tooltipValue = flightDetails?.tvStatus?.status === 'OUT_OF_COVERAGE' ? 'Tail is out of coverage' : null;
+
+      this.cabinStatus.push({
+
+        name: 'TV', status: flightDetails?.tvStatus?.status ? flightDetails?.tvStatus?.status : 'none',
+
+        tooltipData: tooltipValue
+
+      });
+
+    }
+
+    if (!this.isSesConnectivityLiveMonitoring) {
+
+      this.cabinClassStatusConfig.cabinClassStatus = [];
+
+      this.cabinClassStatusConfig.cabinClassStatus = this.cabinStatus;
+
+      this.cabinClassStatusConfig.isConfigLoading = false;
+
+    }
+
+    this.tvDetails = flightDetails.tvStatus ? flightDetails.tvStatus : {};
+
+    this.cabinClassStatusConfig.tvStatus = this.tvDetails;
+
+    this.isTVStatusLoading = false;
+
+    this.mapConfig.linePoints = [];
+
+    this.mapConfig.flightMarkingPoints = [];
+
+    /* istanbul ignore else*/
+
+    if (flightDetails && !flightDetails.error) {
+
+      const altitudeVal = (flightDetails.altitude !== null && flightDetails.altitude !== undefined) ? flightDetails.altitude : 0;
+
+      const lastMessageReceived = {
+
+        updatedDate: flightDetails.messageReceivedDate
+
+      };
+
+      const lastMessageMin = this.commonService.calculateLastMessageReceived(lastMessageReceived);
+
+      this.customConfig = {
+
+        lastMessageReceived: flightDetails.messageReceivedDate,
+
+        label: 'FLIGHT INFORMATION',
+
+        isCustomConfig: true,
+
+        flightNumber: flightDetails.flightNumber,
+
+        departureAirport: flightDetails.departureAirport,
+
+        arrivalAirport: flightDetails.arrivalAirport,
+
+        altitude: `${this.decimalPipe.transform((altitudeVal), '1.0-0')} feet`,
+
+        timeToDestination: this.commonService.secondsToHms(flightDetails.timeToDestination, flightDetails.timeToDestinationIsEmpty, true),
+
+        isIpTv: flightDetails.isIpTv,
+
+        class: 'col-xl-2',
+
+        lastMessageMin: lastMessageMin
+
+      };
+
+      //this.resetChartData();
+
+      this.customConfig['isSesConnectivityLiveMonitoring'] = this.isSesConnectivityLiveMonitoring;
+
+      if (flightDetails.powerCycleCount !== null && flightDetails.powerCycleCount !== undefined &&
+
+        flightDetails.powerCycleCount >= 0) {
+
+        this.customConfig['powerCycleCount'] = flightDetails.powerCycleCount;
+
+      }
+
+ 
+
+      this.customConfig['arrival'] = flightDetails.arrival ? moment.utc(flightDetails.arrival).format('MM/DD/YYYY HH:mm') :
+
+        !flightDetails.estimatedArrival ? 'Unknown' : null;
+
+      this.customConfig['departure'] = flightDetails.departure ? moment.utc(flightDetails.departure).format('MM/DD/YYYY HH:mm') :
+
+        !flightDetails.estimatedDeparture ? 'Unknown' : null;
+
+      this.customConfig['estimatedArrival'] = !flightDetails.arrival && flightDetails.estimatedArrival ?
+
+        moment.utc(flightDetails.estimatedArrival).format('MM/DD/YYYY HH:mm') : null;
+
+      this.customConfig['estimatedDeparture'] = !flightDetails.departure && flightDetails.estimatedDeparture ?
+
+        moment.utc(flightDetails.estimatedDeparture).format('MM/DD/YYYY HH:mm') : null;
+
+ 
+
+      this.displayBeamsOptions();
+
+      const flightArray = [];
+
+      flightArray.push(flightDetails);
+
+      if (this.selectedFlights.length <= 0) {
+
+        this.getMapConfig(flightArray);
+
+      } else {
+
+        this.callFlightInfoAPi(this.selectedFlights);
+
+      }
+
+    } else {
+
+      this.commonService.navigateToNotFoundAccessDenied(flightDetails.error);
+
+    }
+
+  }
+
+  resetChartData() {
+
+    this.activeUserskpiCardObj.coverageData = [];
+
+    this.activeUserskpiCardObj.internetUsersData = [];
+
+    this.activeUserskpiCardObj.totalInternetUsers = [];
+
+    this.activeUserskpiCardObj.totalIptvUsers = [];
+
+    this.activeUserskpiCardObj.iptvUsersData = [];
+
+    this.activeUserskpiCardObj.altitudeData = [];
+
+    this.activeUserskpiCardObj.internetUsersList = [],
+
+      this.activeUserskpiCardObj.iptvUsersList = [],
+
+      this.activeUserskpiCardObj.altitudeList = [],
+
+      this.activeUserskpiCardObj.timestampSource = [];
+
+    this.activeUserskpiCardObj.totalUsage = [];
+
+    this.activeUserskpiCardObj.dataReceived = [];
+
+    this.activeUserskpiCardObj.totalDataTransmitted = [];
+
+    this.activeUserskpiCardObj.totalDataReceived = [];
+
+    this.activeUserskpiCardObj.dataTransmitted = [];
+
+    this.activeUserskpiCardObj.totalUsageList = [];
+
+    this.activeUserskpiCardObj.dataReceivedList = [];
+
+    this.activeUserskpiCardObj.dataTransmittedList = [];
+
+    this.activeUserskpiCardObj.usageData = [];
+
+    this.activeUserskpiCardObj.altitudeData = [];
+
+    this.sesTrendkpiCardObj.coverageData = [];
+
+    this.sesTrendkpiCardObj.timestampSource = [];
+
+    this.sesTrendkpiCardObj.signalQuality = [];
+
+    this.sesTrendkpiCardObj.packetErrorRate = [];
+
+    this.sesTrendkpiCardObj.tcpConnections = [];
+
+    this.sesTrendkpiCardObj.terminalPowerLevel = [];
+
+    this.sesTrendkpiCardObj.altitude = [];
+
+    this.sesTrendkpiCardObj.bytes = [];
+
+    this.sesTrendkpiCardObj.bytesPeakData = [];
+
+  }
+
+ 
+
+  /**
+
+   * Display beams options
+
+   */
+
+  displayBeamsOptions() {
+
+    const tvStatus = this.cabinStatus.find(cabin => cabin.name === 'TV');
+
+    const sesBeamDisplay = this.isSesConnectivityLiveMonitoring;
+
+    const gxBeamDisplay = this.connectivityPlatform === 'KA-GX';
+
+    if (gxBeamDisplay || sesBeamDisplay || tvStatus) {
+
+      this.mapConfig.beamList = [{ 'name': 'None' }];
+
+      if (gxBeamDisplay) {
+
+        this.mapConfig.beamList.push({ 'name': 'Inmarsat GX' });
+
+      }
+
+      if (sesBeamDisplay) {
+
+        this.mapConfig.beamList.push({ 'name': 'SES' });
+
+      }
+
+      if (this.isDisplaysTV) {
+
+        this.mapConfig.beamList.push({ 'name': 'Direct TV' });
+
+      }
+
+    } else {
+
+      this.mapConfig.beamList = [];
+
+    }
+
+    this.mapConfig.defaultSelectedBeam = gxBeamDisplay ? 'Inmarsat GX' : sesBeamDisplay ? 'SES' : this.isDisplaysTV ? 'Direct TV' : 'None';
+
+  }
+
+ 
+
+ 
+
+  getMapConfig(flightDetails) {
+
+    this.mapConfig.pinPointCoordinates = [];
+
+    this.mapConfig.flightMarkingPoints = [];
+
+    this.mapConfig.linePoints = [];
+
+    this.flightPathCoords = [];
+
+    flightDetails.forEach(flightInfo => {
+
+      this.mapConfig.pinPointCoordinates.push({
+
+        departure: {
+
+          longitude: flightInfo.departureAirportLongitude,
+
+          latitude: flightInfo.departureAirportLatitude,
+
+          city: flightInfo.departureCity,
+
+          airportName: flightInfo.departureAirportName,
+
+          airportIata: flightInfo.departureAirportIata,
+
+          country: flightInfo.departureCountry
+
+        },
+
+        arrival: {
+
+          longitude: flightInfo.arrivalAirportLongitude,
+
+          latitude: flightInfo.arrivalAirportLatitude,
+
+          city: flightInfo.arrivalCity,
+
+          airportName: flightInfo.arrivalAirportName,
+
+          airportIata: flightInfo.arrivalAirportIata,
+
+          country: flightInfo.arrivalCountry
+
+        }
+
+      });
+
+    });
+
+ 
+
+    flightDetails.forEach(flightInfo => {
+
+      if (flightInfo.flightPath) {
+
+        flightInfo.flightPath = this.commonService.sortAlphaNumbericOrderByField(flightInfo.flightPath, 'eventReceivedTime');
+
+      }
+
+    });
+
+    const flightMarkingPoints = [];
+
+    flightDetails.forEach(flightInfo => {
+
+     if (flightInfo.flightPath && flightInfo.flightPath.length) {
+
+        const flightPathData = flightInfo.flightPath[flightInfo.flightPath.length - 1];
+
+        const transmitted = flightPathData.transmittedUsage ?
+
+          this.commonService.convertbytesToMegabytes(flightPathData.transmittedUsage) : 0;
+
+        const received = flightPathData.receivedUsage ? this.commonService.convertbytesToMegabytes(flightPathData.receivedUsage) : 0;
+
+ 
+
+        flightMarkingPoints.push({
+
+          'latitude': flightPathData.fisLatitude ? flightPathData.fisLatitude : flightPathData.latitude,
+
+          'longitude': flightPathData.fisLongitude ? flightPathData.fisLongitude : flightPathData.longitude,
+
+          'status': flightInfo.status,
+
+          'airlineIcao': flightInfo.airlineIcao,
+
+          'altitude': flightInfo.fisAltitude ? flightInfo.fisAltitude : flightInfo.altitude,
+
+          'tailNumber': flightInfo.tailNumber,
+
+          'flightNumber': flightInfo.flightNumber,
+
+          'fleetNumber': flightInfo.fleetNumber,
+
+          'departureAirport': flightInfo.departureAirport,
+
+          'arrivalAirport': flightInfo.arrivalAirport,
+
+          'timeToDestination': flightInfo.timeToDestination,
+
+          'timeToDestinationIsEmpty': flightInfo.timeToDestinationIsEmpty,
+
+          'updatedDate': flightInfo.messageReceivedDate,
+
+          'heading': flightInfo.heading,
+
+          'arrivalCity': flightInfo.arrivalCity,
+
+          'departureCity': flightInfo.departureCity,
+
+          'connectivity': flightInfo.flightPath[flightInfo.flightPath.length - 1].connectivityServiceStatuses,
+
+          'cabinStatus': flightInfo.cabinStatus,
+
+          'isIpTv': flightInfo.isIpTv,
+
+          'isFisRegistered': flightInfo.isFisRegistration && !flightInfo.isIfeLiveMonitoring
+
+            && !flightInfo.isSesConnectivityLiveMonitoring && !flightInfo.isIpTv,
+
+          'flightPhase': flightPathData.flightPhase,
+
+          'internetUsers': flightInfo.internetUsers,
+
+          'ipTvUsers': flightInfo.ipTvUsers,
+
+          'transmittedUsage': transmitted ? `${this.decimalPipe.transform((transmitted), '1.0-0')}` : null,
+
+          'receivedUsage': received ? `${this.decimalPipe.transform((received), '1.0-0')}` : null,
+
+          'isSesConnectivityLiveMonitoring': flightInfo.isSesConnectivityLiveMonitoring
+
+        });
+
+        this.mapConfig.flightMarkingPoints = [...flightMarkingPoints];
+
+        const lastMessageReceived = {
+
+          updatedDate: flightInfo.messageReceivedDate
+
+        };
+
+        this.customConfig.lastMessageMin = this.commonService.calculateLastMessageReceived(lastMessageReceived);
+
+      }
+
+      this.getMapPath(flightInfo);
+
+    });
+
+ 
+
+    if (this.isSesConnectivityLiveMonitoring) {
+
+      this.displayActiveUsersChart();
+
+    }
+
+  }
+
+ 
+
+  getMapPath(flightInfo) {
+
+ 
+
+    if (flightInfo.flightPath && flightInfo.flightPath.length) {
+
+ 
+
+      flightInfo.flightPath.forEach(element => {
+
+        element.statuses = element.statuses ? element.statuses : [];
+
+        let status;
+
+        if (this.isFisRegistration && !this.isIfeLiveMonitoring &&
+
+          !this.isIpTv && !this.isSesConnectivityLiveMonitoring) {
+
+          status = 'Unknown';
+
+        } else {
+
+          status = element.tailStatus || 'Unknown';
+
+        }
+
+        const altitudeVal = element.fisAltitude ? element.fisAltitude : element.altitude;
+
+        const transmitted = element.transmittedUsage ? this.commonService.convertbytesToMegabytes(element.transmittedUsage) : 0;
+
+        const received = element.receivedUsage ? this.commonService.convertbytesToMegabytes(element.receivedUsage) : 0;
+
+ 
+
+        this.flightPathCoords.push({
+
+          longitude: element.fisLongitude ? element.fisLongitude : element.longitude,
+
+          latitude: element.fisLatitude ? element.fisLatitude : element.latitude,
+
+          description: {
+
+            flightNumber: flightInfo.flightNumber,
+
+            departureAirport: flightInfo.departureAirport,
+
+            arrivalAirport: flightInfo.arrivalAirport,
+
+            arrivalCity: flightInfo.arrivalCity,
+
+            departureCity: flightInfo.departureCity,
+
+            departureAirportIata: flightInfo.departureAirportIata,
+
+            arrivalAirportIata: flightInfo.arrivalAirportIata,
+
+            lateMessageRecievedTime: element.eventReceivedTime,
+
+            tailStatus: status,
+
+            statuses: element.statuses,
+
+            altitude: altitudeVal ? `${this.decimalPipe.transform((altitudeVal), '1.0-0')}` : null,
+
+            latitude: element.fisLatitude ? element.fisLatitude : element.latitude,
+
+            longitude: element.fisLongitude ? element.fisLongitude : element.longitude,
+
+            flightPhase: element.flightPhase,
+
+            transmittedData: transmitted ? `${this.decimalPipe.transform((transmitted), '1.0-0')}` : null,
+
+            receivedData: received ? `${this.decimalPipe.transform((received), '1.0-0')}` : null,
+
+            isSesConnectivityLiveMonitoring: this.isSesConnectivityLiveMonitoring,
+
+            connectivityStatus: element.connectivityServiceStatuses ? element.connectivityServiceStatuses : null,
+
+          }
+
+        });
+
+        if (this.isSesConnectivityLiveMonitoring) {
+
+          this.flightPathCoords[this.flightPathCoords.length - 1].description.internetUsers = element.internetUsers ?
+
+            element.internetUsers : '--';
+
+          /* istanbul ignore else*/
+
+          if (this.customConfig.isIpTv) {
+
+            this.flightPathCoords[this.flightPathCoords.length - 1].description.iptvUsers = element.ipTvUsers ? element.ipTvUsers : '--';
+
+            this.activeUserskpiCardObj.iptvUsersData.push(element.ipTvUsers ? element.ipTvUsers : null);
+
+          }
+
+          this.activeUserskpiCardObj.totalIptvUsers.push(element.ipTvUsers ? element.ipTvUsers : 0);
+
+          this.activeUserskpiCardObj.totalInternetUsers.push(element.internetUsers ? element.internetUsers : 0);
+
+          this.activeUserskpiCardObj.internetUsersData.push(element.internetUsers ? element.internetUsers : null);
+
+          this.activeUserskpiCardObj.altitudeData.push(element.altitude ? Math.round(element.altitude) : null);
+
+          const transmittedUsage = element.transmittedUsage ?
+
+            this.commonService.convertbytesToMegabytesChart(element.transmittedUsage) : null;
+
+          const receivedUsage = element.receivedUsage ? this.commonService.convertbytesToMegabytesChart(element.receivedUsage) : null;
+
+          this.activeUserskpiCardObj.dataTransmitted.push(transmittedUsage);
+
+          this.activeUserskpiCardObj.dataReceived.push(receivedUsage);
+
+ 
+
+          const trans = element.transmittedUsage ? element.transmittedUsage : 0;
+
+          const rxv = element.receivedUsage ? element.receivedUsage : 0;
+
+          this.activeUserskpiCardObj.totalDataTransmitted.push(trans);
+
+          this.activeUserskpiCardObj.totalDataReceived.push(rxv);
+
+ 
+
+          const totalUsage = trans + rxv;
+
+          this.activeUserskpiCardObj.totalUsage.push(totalUsage ? this.commonService.convertbytesToMegabytesChart(totalUsage) : null);
+
+ 
+
+          const timeinMilliSeconds = element.eventReceivedTime ?
+
+            (new Date(element.eventReceivedTime).getTime()) : '';
+
+          this.formChartSeries(timeinMilliSeconds);
+
+        }
+
+      });
+
+      this.mapConfig.linePoints = [...this.flightPathCoords];
+
+      this.mapConfig = Object.assign({}, this.mapConfig);
+
+    }
+
+    if (this.isSesConnectivityLiveMonitoring) {
+
+      this.sesTrendkpiCardObj.isLoading = true;
+
+      this.displaySESTrendChart(flightInfo.sesSatelliteHistoryData ? flightInfo.sesSatelliteHistoryData : []);
+
+    }
+
+  }
+
+ 
+
+  /**
+
+  * Used to display chart for Active Users.
+
+  * This method is called inside @method getMapPath().
+
+  */
+
+  displayActiveUsersChart() {
+
+    Highcharts.setOptions({
+
+      lang: {
+
+        decimalPoint: '.',
+
+        thousandsSep: ','
+
+      }
+
+    });
+
+ 
+
+    this.chartOption.tooltip = {
+
+      shared: true
+
+    };
+
+    this.chartOption.yAxis = [
+
+      { // Primary yAxis
+
+        labels: {
+
+          format: '{value}',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        allowDecimals: false,
+
+        min: 0,
+
+        title: {
+
+          text: 'Altitude (feet)',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        opposite: true
+
+ 
+
+      }, { // Secondary yAxis
+
+        gridLineWidth: 0,
+
+        allowDecimals: false,
+
+        title: {
+
+          text: 'Active Users',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        labels: {
+
+          format: '{value}',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        }
+
+ 
+
+      }];
+
+ 
+
+    this.activeUserskpiCardObj.altitudeData =
+
+      this.formIptvStatusData(this.activeUserskpiCardObj.altitudeList);
+
+    this.activeUserskpiCardObj.internetUsersData =
+
+      this.formIptvStatusData(this.activeUserskpiCardObj.internetUsersList);
+
+    this.activeUserskpiCardObj.iptvUsersData =
+
+      this.formIptvStatusData(this.activeUserskpiCardObj.iptvUsersList);
+
+    this.activeUserskpiCardObj.dataTransmitted =
+
+      this.formIptvStatusData(this.activeUserskpiCardObj.dataTransmittedList);
+
+    this.activeUserskpiCardObj.dataReceived =
+
+      this.formIptvStatusData(this.activeUserskpiCardObj.dataReceivedList);
+
+    this.activeUserskpiCardObj.totalUsage =
+
+      this.formIptvStatusData(this.activeUserskpiCardObj.totalUsageList);
+
+ 
+
+    const activeUsersChart = JSON.parse(JSON.stringify(this.chartOption));
+
+    this.chartOption.yAxis = [
+
+      { // Primary yAxis
+
+        labels: {
+
+          format: '{value}',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        allowDecimals: false,
+
+        min: 0,
+
+        title: {
+
+          text: 'Altitude (feet)',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        opposite: true
+
+ 
+
+      }, { // Secondary yAxis
+
+        gridLineWidth: 0,
+
+        allowDecimals: false,
+
+        title: {
+
+          text: 'Data Usage',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        labels: {
+
+          format: '{value}',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        }
+
+ 
+
+      }];
+
+    const dataUsageChart = JSON.parse(JSON.stringify(this.chartOption));
+
+    activeUsersChart.xAxis.ordinal = false;
+
+    dataUsageChart.xAxis.ordinal = false;
+
+    activeUsersChart.yAxis['min'] = 0;
+
+    dataUsageChart.yAxis['min'] = 0;
+
+    activeUsersChart.plotOptions.series['connectNulls'] = false;
+
+    dataUsageChart.plotOptions.series['connectNulls'] = false;
+
+ 
+
+    /* istanbul ignore else*/
+
+    if (this.mapConfig.linePoints && this.mapConfig.linePoints.length) {
+
+      this.activeUserskpiCardObj.internetUsersData = this.replaceNullsforChart(this.activeUserskpiCardObj.internetUsersData);
+
+      const internetMax = Math.max(...this.activeUserskpiCardObj.internetUsersData);
+
+      this.activeUserskpiCardObj.altitudeData = this.replaceNullsforChart(this.activeUserskpiCardObj.altitudeData);
+
+      const altitudeMax = Math.max(...this.activeUserskpiCardObj.altitudeData);
+
+      const totalInternetUsers = this.activeUserskpiCardObj.totalInternetUsers.reduce((acc, cur) => acc + Number(cur), 0);
+
+ 
+
+      /* istanbul ignore else*/
+
+      if (this.customConfig.isIpTv && this.connectivityPlatform === 'SES' && this.isSesConnectivityLiveMonitoring) {
+
+        this.activeUserskpiCardObj.iptvUsersData = this.replaceNullsforChart(this.activeUserskpiCardObj.iptvUsersData);
+
+        const totalIptvUsers = this.activeUserskpiCardObj.totalIptvUsers.reduce((acc, cur) => acc + Number(cur), 0);
+
+        this.activeUserskpiCardObj.coverageData.push({
+
+          internetUserBar: true, iptvUserBar: true,
+
+          totalInternetUsers: totalInternetUsers, totalIptvUsers: totalIptvUsers,
+
+          currentInternetUsers: this.activeUserskpiCardObj.totalInternetUsers[this.activeUserskpiCardObj.totalInternetUsers.length - 1],
+
+          currentIptvUsers: this.activeUserskpiCardObj.totalIptvUsers[this.activeUserskpiCardObj.totalIptvUsers.length - 1]
+
+        });
+
+        activeUsersChart.series = [
+
+          {
+
+            name: 'Altitude', yAxis: 0, data: this.activeUserskpiCardObj.altitudeData, tooltip: {
+
+              valueSuffix: ' feet'
+
+            }
+
+          },
+
+          { name: 'Internet Users', yAxis: 1, data: this.activeUserskpiCardObj.internetUsersData },
+
+          { name: 'IPTV Users', yAxis: 1, data: this.activeUserskpiCardObj.iptvUsersData }
+
+        ];
+
+        const iptvMax = Math.max(...this.activeUserskpiCardObj.iptvUsersData);
+
+        activeUsersChart.yAxis['max'] = Math.max(internetMax, iptvMax, altitudeMax);
+
+      } else if (this.isSesConnectivityLiveMonitoring) {
+
+        this.activeUserskpiCardObj.coverageData.push({
+
+          internetUserBar: true,
+
+          totalInternetUsers: totalInternetUsers,
+
+          currentInternetUsers: this.activeUserskpiCardObj.totalInternetUsers[this.activeUserskpiCardObj.totalInternetUsers.length - 1]
+
+        });
+
+        activeUsersChart.series = [
+
+          {
+
+            name: 'Altitude', yAxis: 0, data: this.activeUserskpiCardObj.altitudeData, tooltip: {
+
+              valueSuffix: ' feet'
+
+            }
+
+          },
+
+          { name: 'Internet Users', yAxis: 1, data: this.activeUserskpiCardObj.internetUsersData }
+
+        ];
+
+        activeUsersChart.yAxis['max'] = Math.max(internetMax, altitudeMax);
+
+ 
+
+      }
+
+      /* istanbul ignore else*/
+
+      if (this.isSesConnectivityLiveMonitoring) {
+
+        // Data Usage Chart data Calculation
+
+        this.activeUserskpiCardObj.totalUsage = this.replaceNullsforChart(this.activeUserskpiCardObj.totalUsage);
+
+        this.activeUserskpiCardObj.dataTransmitted = this.replaceNullsforChart(this.activeUserskpiCardObj.dataTransmitted);
+
+        this.activeUserskpiCardObj.dataReceived = this.replaceNullsforChart(this.activeUserskpiCardObj.dataReceived);
+
+        this.activeUserskpiCardObj.altitudeData = this.replaceNullsforChart(this.activeUserskpiCardObj.altitudeData);
+
+        const totalDataTransmitted = this.activeUserskpiCardObj.totalDataTransmitted
+
+        [this.activeUserskpiCardObj.totalDataTransmitted.length - 1] || 0;
+
+        const totalDataReceived = this.activeUserskpiCardObj.totalDataReceived
+
+        [this.activeUserskpiCardObj.totalDataReceived.length - 1] || 0;
+
+        const totalCurrentUsage = totalDataReceived + totalDataTransmitted;
+
+        const totalCU = totalCurrentUsage ? this.commonService.convertbytesToMegabytes(totalCurrentUsage) : 0;
+
+        const totaltrans = totalDataTransmitted ? this.commonService.convertbytesToMegabytes(totalDataTransmitted) : 0;
+
+        const totalrxv = totalDataReceived ? this.commonService.convertbytesToMegabytes(totalDataReceived) : 0;
+
+        this.activeUserskpiCardObj.usageData.push({
+
+          totalCurrentUsage: `${this.decimalPipe.transform((totalCU), '1.0-0')}`,
+
+          totalDataTransmitted: `${this.decimalPipe.transform((totaltrans), '1.0-0')}`,
+
+          totalDataReceived: `${this.decimalPipe.transform((totalrxv), '1.0-0')}`
+
+        });
+
+        dataUsageChart.series = [
+
+          {
+
+            name: 'Altitude', yAxis: 0,
+
+            data: this.activeUserskpiCardObj.altitudeData, tooltip: {
+
+              valueSuffix: ' feet'
+
+            }
+
+          },
+
+          {
+
+            name: 'Current Usage', yAxis: 1,
+
+            data: this.activeUserskpiCardObj.totalUsage, tooltip: {
+
+              valueSuffix: ' Mb'
+
+            }
+
+          },
+
+          {
+
+            name: 'Received', yAxis: 1,
+
+            data: this.activeUserskpiCardObj.dataReceived, tooltip: {
+
+              valueSuffix: ' Mb'
+
+            }
+
+          },
+
+          {
+
+            name: 'Transmitted', yAxis: 1,
+
+            data: this.activeUserskpiCardObj.dataTransmitted, tooltip: {
+
+              valueSuffix: ' Mb'
+
+            }
+
+          }
+
+        ];
+
+        dataUsageChart.yAxis['max'] = Math.max(...this.activeUserskpiCardObj.totalUsage,
+
+          ...this.activeUserskpiCardObj.dataTransmitted,
+
+          ...this.activeUserskpiCardObj.dataReceived, ...this.activeUserskpiCardObj.altitudeData);
+
+      }
+
+    }
+
+    this.activeUsersChart = activeUsersChart;
+
+    this.dataUsageChart = dataUsageChart;
+
+  }
+
+ 
+
+  /**
+
+  * Used to display chart for SES Satellite Data Trend.
+
+  * This method is called inside @method getMapPath().
+
+  */
+
+  displaySESTrendChart(chartData) {
+
+    Highcharts.setOptions({
+
+      lang: {
+
+        decimalPoint: '.',
+
+        thousandsSep: ','
+
+      }
+
+    });
+
+    this.chartOptionSES.yAxis = [
+
+      { // Primary yAxis
+
+        labels: {
+
+          format: '{value}',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        allowDecimals: false,
+
+        min: 0,
+
+        title: {
+
+          text: 'Altitude (feet)',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        opposite: true
+
+ 
+
+      }, { // Secondary yAxis
+
+        gridLineWidth: 0,
+
+        allowDecimals: false,
+
+        min: -20,
+
+        startOnTick: false,
+
+        title: {
+
+          text: 'SES API Metrics',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        },
+
+        labels: {
+
+          format: '{value}',
+
+          style: {
+
+            color: 'rgba(102,102,102,1)'
+
+          }
+
+        }
+
+ 
+
+      }];
+
+    this.chartOptionSES.tooltip = {
+
+      shared: true
+
+    };
+
+    const sesTrendChart = JSON.parse(JSON.stringify(this.chartOptionSES));
+
+    sesTrendChart.xAxis.categories = this.sesTrendkpiCardObj.timestampSource;
+
+    sesTrendChart.plotOptions.series['connectNulls'] = false;
+
+    /* istanbul ignore else*/
+
+    if (this.isSesConnectivityLiveMonitoring && chartData.length) {
+
+      chartData.forEach(data => {
+
+        this.sesTrendkpiCardObj.timestampSource.push((data.messageReceivedTime) ?
+
+          (moment.utc(data.messageReceivedTime).format('HH:mm')) : null);
+
+        const altitude = data.altitude ? data.altitude * 3.2808 : null;
+
+        this.sesTrendkpiCardObj.altitude.push(altitude ? Math.round(altitude) : null);
+
+        this.sesTrendkpiCardObj.signalQuality.push(data.signalQuality ? Math.round(data.signalQuality * 10) / 10 : null);
+
+        this.sesTrendkpiCardObj.packetErrorRate.push(data.packetErrorRate ? Math.round(data.packetErrorRate * 10) / 10 : null);
+
+        this.sesTrendkpiCardObj.tcpConnections.push(data.tcpConnections ? Math.round(data.tcpConnections * 10) / 10 : null);
+
+        this.sesTrendkpiCardObj.terminalPowerLevel.push(data.terminalPowerLevel ? Math.round(data.terminalPowerLevel * 10) / 10 : null);
+
+        this.sesTrendkpiCardObj.bytes.push(data.bytes ? this.commonService.convertbytesToMegabytesChart(data.bytes) : null);
+
+        this.sesTrendkpiCardObj.bytesPeakData.push(data.bytesPeakData ?
+
+          this.commonService.convertbytesToMegabytesChart(data.bytesPeakData) : null);
+
+      });
+
+      this.sesTrendkpiCardObj.coverageData.push({
+
+        altitude: this.sesTrendkpiCardObj.altitude,
+
+        signalQuality: this.sesTrendkpiCardObj.signalQuality,
+
+        packetErrorRate: this.sesTrendkpiCardObj.packetErrorRate,
+
+        tcpConnections: this.sesTrendkpiCardObj.tcpConnections,
+
+        terminalPowerLevel: this.sesTrendkpiCardObj.terminalPowerLevel,
+
+        bytes: this.sesTrendkpiCardObj.bytes,
+
+        bytesPeakData: this.sesTrendkpiCardObj.bytesPeakData
+
+      });
+
+      sesTrendChart.series = [
+
+        {
+
+          name: 'Altitude', yAxis: 0, data: this.sesTrendkpiCardObj.altitude, tooltip: {
+
+            valueSuffix: ' feet'
+
+          }
+
+        },
+
+        { name: 'Signal Quality', yAxis: 1, data: this.sesTrendkpiCardObj.signalQuality },
+
+        { name: 'Packet Error Rate', yAxis: 1, data: this.sesTrendkpiCardObj.packetErrorRate },
+
+        { name: 'TCP Connections', yAxis: 1, data: this.sesTrendkpiCardObj.tcpConnections },
+
+        { name: 'Terminal Power Level', yAxis: 1, data: this.sesTrendkpiCardObj.terminalPowerLevel },
+
+        {
+
+          name: 'Bytes', yAxis: 1, data: this.sesTrendkpiCardObj.bytes, tooltip: {
+
+            valueSuffix: ' Mb'
+
+          }
+
+        },
+
+        {
+
+          name: 'Bytes Peak Data', yAxis: 1, data: this.sesTrendkpiCardObj.bytesPeakData, tooltip: {
+
+            valueSuffix: ' Mb'
+
+          }
+
+        }];
+
+      const altitudeMax = Math.max(...this.sesTrendkpiCardObj.altitude);
+
+      const signalQualityMax = Math.max(...this.sesTrendkpiCardObj.signalQuality);
+
+      const packetErrorRateMax = Math.max(...this.sesTrendkpiCardObj.packetErrorRate);
+
+      const tcpConnectionsMax = Math.max(...this.sesTrendkpiCardObj.tcpConnections);
+
+      const terminalPowerLevelMax = Math.max(...this.sesTrendkpiCardObj.terminalPowerLevel);
+
+      const bytesMax = Math.max(...this.sesTrendkpiCardObj.bytes);
+
+      const bytesPeakDataMax = Math.max(...this.sesTrendkpiCardObj.bytesPeakData);
+
+      const altitudeMin = Math.min(...this.sesTrendkpiCardObj.altitude);
+
+      const signalQualityMin = Math.min(...this.sesTrendkpiCardObj.signalQuality);
+
+      const packetErrorRateMin = Math.min(...this.sesTrendkpiCardObj.packetErrorRate);
+
+      const tcpConnectionsMin = Math.min(...this.sesTrendkpiCardObj.tcpConnections);
+
+      const terminalPowerLevelMin = Math.min(...this.sesTrendkpiCardObj.terminalPowerLevel);
+
+      const bytesMaxMin = Math.min(...this.sesTrendkpiCardObj.bytes);
+
+      const bytesPeakDataMaxMin = Math.min(...this.sesTrendkpiCardObj.bytesPeakData);
+
+ 
+
+      sesTrendChart.yAxis['max'] = Math.max
+
+        (altitudeMax, signalQualityMax, packetErrorRateMax, tcpConnectionsMax, terminalPowerLevelMax, bytesMax, bytesPeakDataMax);
+
+      sesTrendChart.yAxis['min'] = Math.min
+
+        (altitudeMin, signalQualityMin, packetErrorRateMin, tcpConnectionsMin, terminalPowerLevelMin, bytesMaxMin, bytesPeakDataMaxMin);
+
+    }
+
+    this.sesTrendChart = sesTrendChart;
+
+    this.sesTrendkpiCardObj.isLoading = false;
+
+  }
+
+ 
+
+  replaceNullsforChart(array) {
+
+    array = array.map(function (val, i) {
+
+      return val === null ? 0 : val;
+
+    });
+
+    return array;
+
+  }
+
+ 
+
+  formIptvStatusData(statusData) {
+
+    const statusList = [];
+
+    for (let n = 0; n < statusData.length; n++) {
+
+      statusList.push
+
+        ([statusData[n], statusData[n + 1]]);
+
+      n++;
+
+    }
+
+    return statusList;
+
+  }
+
+ 
+
+  formChartSeries(timeinMilliSeconds) {
+
+ 
+
+    if (this.activeUserskpiCardObj.altitudeData.length > 0) {
+
+      this.activeUserskpiCardObj.altitudeList.push(timeinMilliSeconds);
+
+      this.activeUserskpiCardObj.altitudeList.push(this.activeUserskpiCardObj.altitudeData[0]);
+
+    }
+
+    if (this.activeUserskpiCardObj.internetUsersData.length > 0) {
+
+      this.activeUserskpiCardObj.internetUsersList.push(timeinMilliSeconds);
+
+      this.activeUserskpiCardObj.internetUsersList.push(this.activeUserskpiCardObj.internetUsersData[0]);
+
+    }
+
+ 
+
+    if (this.activeUserskpiCardObj.iptvUsersData.length > 0) {
+
+      this.activeUserskpiCardObj.iptvUsersList.push(timeinMilliSeconds);
+
+      this.activeUserskpiCardObj.iptvUsersList.push(this.activeUserskpiCardObj.iptvUsersData[0]);
+
+    }
+
+ 
+
+    if (this.activeUserskpiCardObj.dataTransmitted.length > 0) {
+
+      this.activeUserskpiCardObj.dataTransmittedList.push(timeinMilliSeconds);
+
+      this.activeUserskpiCardObj.dataTransmittedList.push(this.activeUserskpiCardObj.dataTransmitted[0]);
+
+    }
+
+    if (this.activeUserskpiCardObj.dataReceived.length > 0) {
+
+      this.activeUserskpiCardObj.dataReceivedList.push(timeinMilliSeconds);
+
+      this.activeUserskpiCardObj.dataReceivedList.push(this.activeUserskpiCardObj.dataReceived[0]);
+
+    }
+
+    if (this.activeUserskpiCardObj.totalUsage.length > 0) {
+
+      this.activeUserskpiCardObj.totalUsageList.push(timeinMilliSeconds);
+
+      this.activeUserskpiCardObj.totalUsageList.push(this.activeUserskpiCardObj.totalUsage[0]);
+
+    }
+
+ 
+
+    this.activeUserskpiCardObj.altitudeData = [];
+
+    this.activeUserskpiCardObj.internetUsersData = [];
+
+    this.activeUserskpiCardObj.iptvUsersData = [];
+
+    this.activeUserskpiCardObj.dataReceived = [];
+
+    this.activeUserskpiCardObj.dataTransmitted = [];
+
+    this.activeUserskpiCardObj.totalUsage = [];
+
+  }
+
+  /**
+
+   * Check the lru type with conectivity lru type and airline icao
+
+   * @param lruType - lru type (also called as host name)
+
+   * connectivityDSU - DSU23
+
+   * @returns boolean
+
+   */
+
+  checkLruTypeWithAirline(lruType, expectedLruCount) {
+
+    const hostnameIndex = this.hostnameList.findIndex(item => item.hostname === this.connectivityDSU);
+
+    if (hostnameIndex > -1 && lruType.includes('DSU') && this.lruTypeConfig.icao === 'QTR') {
+
+      const actualLrus = this.hostnameList.filter(item => item.hostname.includes('DSU') && item.hostname !== this.connectivityDSU);
+
+      return expectedLruCount === actualLrus.length ? expectedLruCount : expectedLruCount - 1;
+
+    }
+
+    return expectedLruCount;
+
+  }
+
+ 
+
+  tooltipOver(type) {
+
+    document.body.style.position = type === 'over' ? 'unset' : 'relative';
+
+  }
+
+ 
+
+  checkIsNumber(val) {
+
+    return typeof (val) === 'number';
+
+  }
+
+ 
+
+  getConnectivityDetails(connectivityData) {
+
+    /* istanbul ignore else*/
+
+    if (this.connectivityData && connectivityData.components) {
+
+      const componentKeys = Object.keys(connectivityData.components);
+
+      componentKeys.forEach(prop => {
+
+        if (connectivityData.components[prop] && connectivityData.components[prop].length > 0) {
+
+          this.connectivityDataLength = true;
+
+          this.connectivityData.components[prop] =
+
+            this.commonService.sortAlphaNumbericOrderByField(connectivityData.components[prop], 'name');
+
+          if (prop.toLowerCase() === 'hardware') {
+
+            this.connectivityData.components[prop].map(comp => Object.assign(comp, { enablePopup: true }));
+
+          }
+
+          if (prop.toLowerCase() === 'service') {
+
+            /* istanbul ignore else*/
+
+            if (this.customConfig.isIpTv && this.cabinClassStatusConfig) {
+
+              const iptvComponent = connectivityData.components[prop].find(element => element.name === 'IPTV') || {};
+
+              iptvComponent.name = iptvComponent.name || 'IPTV';
+
+              iptvComponent.status = iptvComponent.status || 'Unknown';
+
+              iptvComponent.tooltipData = [];
+
+              iptvComponent.tooltipData.status = iptvComponent.status || 'Unknown';
+
+              iptvComponent.tooltipData.faultReasons = iptvComponent.faultReasons || [];
+
+              // Make IPTV Tooltip Fault Reasons as bold
+
+              let i;
+
+              for (i = 0; i < iptvComponent.tooltipData.faultReasons.length; i++) {
+
+                if (iptvComponent.tooltipData.faultReasons[i] !== 'No aircraft data has been received in the last 4 Minutes') {
+
+                  const tooltipValue =
+
+                    (iptvComponent.tooltipData.faultReasons[i].substring(iptvComponent.tooltipData.faultReasons[i].lastIndexOf(':') + 1));
+
+                  iptvComponent.tooltipData.faultReasons[i] = iptvComponent.tooltipData.faultReasons[i].replace(`${tooltipValue}`, `<b>${tooltipValue}</b>`);
+
+                }
+
+              }
+
+              const iptvIcon = this.cabinStatus.find(element => element.name === 'IPTV');
+
+              this.cabinStatus = iptvIcon ? this.cabinStatus.filter(element => element.name !== 'IPTV') : this.cabinStatus;
+
+              const iptvIndex = this.connectivityData.components[prop].findIndex(itm => itm.name === 'IPTV');
+
+              if (iptvIndex !== -1) {
+
+                this.connectivityData.components[prop].splice(iptvIndex, 1);
+
+              }
+
+              this.connectivityData.components[prop].push({
+
+                name: iptvComponent.name, status: iptvComponent.status, faultReasons:
+
+                  iptvComponent.tooltipData?.faultReasons, enablePopup: true
+
+              });
+
+ 
+
+              this.cabinClassStatusConfig.cabinClassStatus = [];
+
+              this.cabinClassStatusConfig.cabinClassStatus = this.cabinStatus;
+
+              this.cabinClassStatusConfig.isConfigLoading = false;
+
+            } else {
+
+              this.connectivityData.components[prop] = this.connectivityData.components[prop].filter(element => element.name !== 'IPTV');
+
+              this.cabinClassStatusConfig.cabinClassStatus = this.cabinStatus;
+
+              this.cabinClassStatusConfig.isConfigLoading = false;
+
+            }
+
+          }
+
+        } else {
+
+          this.connectivityData.components[prop] = [];
+
+          this.cabinClassStatusConfig.cabinClassStatus = this.cabinStatus;
+
+          this.cabinClassStatusConfig.isConfigLoading = false;
+
+        }
+
+      });
+
+    } else {
+
+      Object.entries(this.connectivityData.components).forEach(([key]) => {
+
+        this.connectivityData.components[key] = [];
+
+      });
+
+      this.cabinClassStatusConfig.cabinClassStatus = this.cabinStatus;
+
+      this.cabinClassStatusConfig.isConfigLoading = false;
+
+    }
+
+    this.connectivityData.isLoading = false;
+
+  }
+
+ 
+
+  getSatelliteInformation(satelliteData) {
+
+    this.satelliteStatusMessage = '';
+
+    this.satelliteData = {};
+
+    /* istanbul ignore else*/
+
+    if (satelliteData && satelliteData.length) {
+
+      const minutesago = satelliteData[0].updatedDate ? this.commonService.calculateLastMessageReceived(satelliteData[0]) : '';
+
+      this.sectionTitleConfig.labelTxt = satelliteData[0].messageReceivedTime ? `Updated at ${moment.utc(satelliteData[0].messageReceivedTime).format('YYYY-MM-DD HH:mm')}
+
+        UTC (${minutesago} minutes ago)` : '';
+
+      if (satelliteData[0].status) {
+
+        delete satelliteData[0].status;
+
+        delete satelliteData[0].statusMessage;
+
+        delete satelliteData[0].customerId;
+
+        delete satelliteData[0].modemId;
+
+        delete satelliteData[0].configurationId;
+
+        delete satelliteData[0].updatedDate;
+
+        satelliteData[0].signalQuality = satelliteData[0].signalQuality ? Math.round(satelliteData[0].signalQuality * 10) / 10 : null;
+
+        satelliteData[0].terminalPowerLevel =
+
+          satelliteData[0].terminalPowerLevel ? Math.round(satelliteData[0].terminalPowerLevel * 10) / 10 : null;
+
+        if (satelliteData[0].altitude) {
+
+          satelliteData[0].altitude = satelliteData[0].altitude * 3.2808;
+
+          satelliteData[0].altitude = this.decimalPipe.transform((satelliteData[0].altitude), '1.0-0') + ' feet';
+
+        }
+
+        if (satelliteData[0].bytes) {
+
+          satelliteData[0].bytes = this.commonService.convertbytesToMegabytes(satelliteData[0].bytes);
+
+          satelliteData[0].bytes = this.decimalPipe.transform((satelliteData[0].bytes), '1.0-0') + ' MB';
+
+        }
+
+        if (satelliteData[0].bytesPeakData) {
+
+         satelliteData[0].bytesPeakData = this.commonService.convertbytesToMegabytes(satelliteData[0].bytesPeakData);
+
+          satelliteData[0].bytesPeakData = this.decimalPipe.transform((satelliteData[0].bytesPeakData), '1.0-0') + ' MB';
+
+        }
+
+        this.satelliteData = satelliteData[0];
+
+      } else {
+
+        this.satelliteStatusMessage = satelliteData[0].statusMessage;
+
+      }
+
+    }
+
+  }
+
+ 
+
+  transformData(value, fieldName) {
+
+    /* istanbul ignore else*/
+
+    if (fieldName === 'received' || fieldName === 'transmitted' || fieldName === 'current') {
+
+      value = !isNaN(value) ? this.commonService.convertbytesToMegabytesChart(value).toLocaleString() + ' Mb' : '';
+
+    } else if (fieldName === 'faultReason') {
+
+      value = value ? value : '';
+
+    } else if (fieldName === 'altitude') {
+
+      value = parseInt(value, 10).toLocaleString();
+
+    } else if (fieldName === 'timeToDestination') {
+
+      value = this.commonService.secondsToHms(value, false, true);
+
+    }
+
+    return value;
+
+  }
+
+ 
+
+  getSelectedEvent(event) {
+
+    /* istanbul ignore else*/
+
+    if (event.eventName === 'displayviewchange') {
+
+      this.historyView = !this.historyView;
+
+      if (this.historyView) {
+
+        this.setSelectedFlight();
+
+        this.columns = [];
+
+        this.treeStructureData = [];
+
+        this.isAutoRefreshCall = false;
+
+        if (this.selectedFlights.length > 1) {
+
+          this.isMultipleFlightSelect = true;
+
+        } else {
+
+          this.flightQuery = this.selectedFlights[0] ? `?flightId=${this.selectedFlights[0]}` : '';
+
+          this.currentFlightId = this.selectedFlights[0];
+
+          this.isMultipleFlightSelect = false;
+
+          this.getTreeTableData();
+
+        }
+
+      } else {
+
+        this.getTailsData();
+
+      }
+
+      this.actionToolBarConfig.enableSearch = this.historyView;
+
+      this.actionToolBarConfig.customActionConfig[1]['label'] = this.historyView ? 'Display Summary View' : 'Display Flight History';
+
+      this.actionToolBarConfig.customActionConfig[1]['icon'] = 'fa-' + (this.historyView ? 'chevron-circle-left' : 'history');
+
+      this.googleAnalyticsService.gaEvent('User Actions', this.actionToolBarConfig.customActionConfig[1]['label'],
+
+        'Tail - Live monitoring');
+
+      this.isTreeExpand = true;
+
+    } else if (event.eventName === 'displayFlightsModal') {
+
+      this.isAutoRefreshCall = false;
+
+      this.setSelectedFlight();
+
+      this.selectFlightModal = this.modalService.open(this.popUpContent, { ariaLabelledBy: 'modal-basic-title', centered: true });
+
+      Observable.of(true).pipe(delay(100)).subscribe(() => {
+
+        this.renderer.selectRootElement('#inp-select-flight-filter').focus();
+
+      });
+
+ 
+
+    } else if (event.eventName === 'seePostFlightData') {
+
+      if (this.selection.selected.length < 1) {
+
+        this.router.navigate(['/airlines', this.lruTypeConfig.icao, 'tails', this.lruTypeConfig.tailNumber,
+
+          'flights', this.selectedFlightId]);
+
+      }
+
+    }
+
+  }
+
+ 
+
+  showRawMessageModal(flight: any) {
+
+    this.isRawApiLoading = true;
+
+    this.modalService.open(this.rawDataModal, { ariaLabelledBy: 'modal-basic-title', centered: true, size: 'lg' });
+
+    this.googleAnalyticsService.gaEvent('User Actions', 'Display Raw Message', 'Tail - Live monitoring');
+
+    this.getRawData(flight);
+
+  }
+
+ 
+
+  clipboardCopy(value: any) {
+
+    this.googleAnalyticsService.gaEvent('User Actions', 'Copy to Clipboard', 'Tail - Live monitoring');
+
+    this.clipboard.copyFromContent(JSON.stringify(value));
+
+  }
+
+ 
+
+  resetModal() {
+
+    this.isRawApiLoading = false;
+
+    this.displayedRawMessage = {
+
+      timeStamp: null,
+
+      data: null
+
+    };
+
+  }
+
+ 
+
+  /**
+
+  * Get Selected Airlines
+
+  */
+
+  selectedRow(event) {
+
+    setTimeout(() => {
+
+      console.log('Events is ' + event);
+
+      if (this.selection.selected.length > 9) {
+
+        this.lastSelected10Flights = this.selection.selected;
+
+      }
+
+    });
+
+  }
+
+ 
+
+  fetchLastSelectedFlights() {
+
+    const numSelected = this.selection.selected.length;
+
+    if (numSelected < 10) {
+
+      if (this.flightsDataSource.filteredData.length >= 10) {
+
+        for (let index = 0; index < 10; index++) {
+
+          this.selection.select(this.flightsDataSource.filteredData[index]);
+
+          this.lastSelected10Flights.push(this.flightsDataSource.filteredData[index]);
+
+        }
+
+      } else {
+
+        this.flightsDataSource.data.forEach(row1 => this.selection.select(row1));
+
+        this.lastSelected10Flights.push(this.flightsDataSource.data);
+
+      }
+
+    }
+
+    this.selection = new SelectionModel(true, this.lastSelected10Flights);
+
+  }
+
+ 
+
+  getFlightID(selectedFlights) {
+
+    const flightIDArray = [];
+
+    selectedFlights.forEach(function (arrayItem) {
+
+      if (arrayItem.id !== undefined && arrayItem.id !== 'NaN' && arrayItem.id !== null && arrayItem.tailNumber !== null) {
+
+        flightIDArray.push(arrayItem.id);
+
+      }
+
+    });
+
+    return flightIDArray;
+
+  }
+
+  callFlightInfoAPi(selectedFlights) {
+
+    const array = [];
+
+    selectedFlights.forEach(element => {
+
+      if (element !== undefined) {
+
+        const flightQuery1 = element ? `?flightId=${element}` : '';
+
+        const element$ = this.liveMonitoringService.getTailsDetails(this.lruTypeConfig.icao, this.lruTypeConfig.tailNumber,
+
+          `flight-info${flightQuery1}`)
+
+          .map((res: any) => {
+
+            return res;
+
+          })
+
+          .catch((error: any) => {
+
+            return Observable.of(error);
+
+          });
+
+ 
+
+        array.push(element$);
+
+      }
+
+    });
+
+ 
+
+ 
+
+    combineLatest(array).subscribe(
+
+      (arrayList) => {
+
+        this.getMapConfig(arrayList);
+
+      },
+
+      err => {
+
+ 
+
+      }
+
+    );
+
+  }
+
+  ngOnDestroy() {
+
+    this.tailDataService.clearData();
+
+    /* istanbul ignore else*/
+
+    if (this.routeSubscribtion) {
+
+      this.routeSubscribtion.unsubscribe();
+
+    }
+
+    /* istanbul ignore else*/
+
+    if (this.activeRouteSubscription) {
+
+      this.activeRouteSubscription.unsubscribe();
+
+    }
+
+    clearInterval(this.setInterval);
+
+  }
+
+}

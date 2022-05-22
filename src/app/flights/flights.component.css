@@ -1,0 +1,67 @@
+
+.fonts{
+    font-size: 12px;
+}
+
+.bold{
+    font-weight: bold;
+    font-size: 20px;
+}
+
+.rad1{
+    border-radius: 5px 0 0 0;
+}
+
+.rad2{
+    border-radius: 0 5px 0 0;
+}
+
+.rad3{
+    border-radius: 0 0 5px 0;
+}
+
+.rad4{
+    border-radius: 0 0 0 5px;
+}
+
+.radius{
+    border-radius: 5px 0 0 5px;
+    /* background-color: coral; */
+}
+
+.button1{
+    color: chartreuse;
+}
+
+.button2{
+    color: red;
+}
+
+.button3{
+    color: orange;
+}
+
+.button4{
+    color: gray;
+}
+
+.button5{
+    color: teal;
+}
+
+.optclr{
+    background-color: rgb(118, 255, 118);
+  }
+  
+  .nonoptclr{
+   background-color: rgb(238, 155, 155);
+  }
+  
+  .degretclr{
+  background-color: rgb(252, 211, 136);
+  }
+  
+  .unknownclr{
+    background-color: #fffdfd;
+  
+  }
