@@ -24,7 +24,6 @@ export class FlightsComponent implements OnInit {
   getData(){
     this.api.getData().subscribe(data => {
       this.flightData = data;
-      console.log(data);
       for( this.newData of this.flightData){
         this.flightId = localStorage.getItem('flightId');
         if(this.newData.flightdata){
