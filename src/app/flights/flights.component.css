@@ -26,6 +26,7 @@
 
 .radius{
     border-radius: 5px 0 0 5px;
+    width: 5%;
     /* background-color: coral; */
 }
 
@@ -64,4 +65,12 @@
   .unknownclr{
     background-color: #fffdfd;
   
+  }
+
+
+  @media only screen and (max-width: 425px) {
+    .radius {
+      width: 91%;
+      border-radius: 5px 5px 0 0;
+    }
   }
