@@ -29,5 +29,7 @@
 
 .card{
     cursor: pointer;
+    background-color: azure;
     /* border:none; */
+    border-radius: 5px;
 }
