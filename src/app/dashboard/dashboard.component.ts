@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { delay } from 'rxjs';
 import { ApiService } from '../api.service';
 
 @Component({
@@ -11,6 +12,7 @@ export class DashboardComponent implements OnInit {
   buttonToggle : boolean = false;
   refData : any;
   jsonData : any;
+  isLoading : boolean = false;
 
   constructor(private api:ApiService) { }
 
@@ -20,9 +22,10 @@ export class DashboardComponent implements OnInit {
 
   airlines(){
     this.buttonToggle = true;
-    this.api.getData().subscribe(data => {
+    this.api.getData().pipe(delay(2000)).subscribe(data => {
       this.getData = data;
-    });
+      this.isLoading = true;
+    })
   }
 
   flight(){
